@@ -8,6 +8,7 @@ from services import JWTManager
 Auth = APIRouter(prefix="/api/v1/auth", tags=["Authentication"])
 
 Base.metadata.create_all(bind=engine)
+jwt_manager = JWTManager()
 
 def get_db():
     db = SessionLocal()
@@ -59,17 +60,17 @@ async def login(request: Request, response: Response, db: Session = Depends(get_
     }
 
     expiration = 30 if remember_me else 1
-    access_token = JWTManager().create_access_token(payload)
-    refresh_token = JWTManager().create_refresh_token(payload,days=expiration)
+    access_token = jwt_manager.create_access_token(payload)
+    refresh_token = jwt_manager.create_refresh_token(payload,days=expiration)
 
-    response.set_cookie(
-        key="access_token",
-        value=access_token,
-        httponly=True,
-        secure=True,          # use HTTPS in production
-        samesite="Lax",
-        max_age=60 * 15       # 15 minutes
-    )
+    # response.set_cookie(
+    #     key="access_token",
+    #     value=access_token,
+    #     httponly=True,
+    #     secure=True,          # use HTTPS in production
+    #     samesite="Lax",
+    #     max_age=60 * 15       # 15 minutes
+    # )
 
     response.set_cookie(
         key="refresh_token",
@@ -83,5 +84,38 @@ async def login(request: Request, response: Response, db: Session = Depends(get_
     return {
         "status_code": status.HTTP_200_OK,
         "detail":"Password Accepted",
-        "data": payload
+        "data": payload,
+        "access_token": access_token
     }
+
+@Auth.post("/pin")
+@jwt_manager.requires_auth
+async def pin(request: Request, response: Response, db: Session = Depends(get_db)):
+    data = await request.json() 
+    pin_password = data.get("pin_password")
+    email = data.get("email")
+
+    if not pin_password:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Missing parameter: PIN"
+        )
+    
+    if not email:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Missing parameter: email"
+        )
+    
+    user = db.query(Users).filter(Users.email == email).first()
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Email not found"
+        )
+    
+    if not pin_password == user.pin:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect password"
+        )
