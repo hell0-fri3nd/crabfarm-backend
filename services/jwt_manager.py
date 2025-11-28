@@ -63,14 +63,14 @@ class JWTManager:
                 )
             
             token = auth_header.split(" ")[1]
-            
-            # Use your existing decode logic
-            user_payload = self.decode_token(token)
-
-            # Important: Pass the decoded payload down to the wrapped function!
-            # The function receiving this decorator should accept a `user_payload` argument.
-            kwargs["user_payload"] = user_payload
-            
+            try:
+                self.decode_token(token)
+            except Exception as e:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail=f"Invalid or expired token: {str(e)}"
+                )
+    
             return await func(*args, **kwargs)
         
         return wrapper

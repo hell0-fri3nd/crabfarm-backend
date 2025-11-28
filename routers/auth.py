@@ -91,31 +91,50 @@ async def login(request: Request, response: Response, db: Session = Depends(get_
 @Auth.post("/pin")
 @jwt_manager.requires_auth
 async def pin(request: Request, response: Response, db: Session = Depends(get_db)):
-    data = await request.json() 
-    pin_password = data.get("pin_password")
-    email = data.get("email")
 
-    if not pin_password:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Missing parameter: PIN"
-        )
-    
-    if not email:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Missing parameter: email"
-        )
-    
-    user = db.query(Users).filter(Users.email == email).first()
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Email not found"
-        )
-    
-    if not pin_password == user.pin:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect password"
-        )
+    try:
+        data = await request.json() 
+        
+        auth_header = request.headers.get("Authorization")
+        token = auth_header.split(" ")[1]
+
+        decoded = jwt_manager.decode_token(token)
+        email = decoded['email']
+
+        pin_password = data.get("pin_password")
+
+        if not pin_password:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Missing parameter: PIN"
+            )
+        
+        user = db.query(Users).filter(Users.email == email).first()
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Email not found"
+            )
+        
+        if not pin_password == user.pin:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Incorrect password"
+            )
+        
+        payload = {
+            "name": decoded["name"],
+            "email": email,
+            "role": decoded["role"]
+        }
+        
+        access_token = jwt_manager.create_access_token(payload)
+
+        return {
+            "status_code": status.HTTP_200_OK,
+            "detail":"Password Accepted",
+            "access_token": access_token
+        }
+
+    except Exception:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid or missing JSON body")
