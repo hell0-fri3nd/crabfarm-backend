@@ -83,18 +83,18 @@ async def login(request: Request, response: Response, db: Session = Depends(get_
 
     return {
         "status_code": status.HTTP_200_OK,
-        "detail":"Password Accepted",
+        "detail":"Login Successfuly",
         "data": payload,
         "access_token": access_token
     }
 
 @Auth.post("/pin")
-@jwt_manager.requires_auth
+@jwt_manager.requires_refresh
+@jwt_manager.requires_access
 async def pin(request: Request, response: Response, db: Session = Depends(get_db)):
 
     try:
         data = await request.json() 
-        
         auth_header = request.headers.get("Authorization")
         token = auth_header.split(" ")[1]
 
@@ -134,7 +134,16 @@ async def pin(request: Request, response: Response, db: Session = Depends(get_db
             "status_code": status.HTTP_200_OK,
             "detail":"Password Accepted",
             "access_token": access_token
-        }
+        },
 
     except Exception:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid or missing JSON body")
+    
+    
+@Auth.post("/logout")
+def logout(response: Response):
+    response.delete_cookie("refresh_token")
+    return {
+        "status_code": status.HTTP_200_OK,
+        "detail": "Successfully logged out",
+    }
