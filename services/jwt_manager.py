@@ -1,3 +1,4 @@
+from jwt import ExpiredSignatureError, InvalidTokenError
 import jwt
 from datetime import datetime, timedelta
 from dotenv import load_dotenv
@@ -43,11 +44,7 @@ class JWTManager:
         token = jwt.encode(to_encode, self.__secret_key, algorithm=self.__algorithm)
         return token
     
-    def requires_auth(self, func):
-        """
-            A decorator to secure FastAPI endpoints. 
-            It validates the JWT token and injects the 'user_payload' into the function kwargs.
-        """
+    def requires_access(self, func):
         @wraps(func)
         async def wrapper(*args, **kwargs):
             request: Request = kwargs.get("request")
@@ -71,6 +68,31 @@ class JWTManager:
                     detail=f"Invalid or expired token: {str(e)}"
                 )
     
+            return await func(*args, **kwargs)
+        
+        return wrapper
+    
+    def requires_refresh(self, func):
+
+        @wraps(func)
+        async def wrapper(*args, **kwargs):
+            
+            request: Request = kwargs.get("request") or args[0]
+            refresh_token = request.cookies.get("refresh_token")
+            
+            if not refresh_token:
+                raise HTTPException(status_code=401, detail="Refresh token missing")
+
+
+            try:
+                payload = self.decode_token(refresh_token)
+                # Token is valid and not expired
+            except ExpiredSignatureError:
+                raise HTTPException(status_code=401, detail="Refresh token expired")
+            except InvalidTokenError:
+                raise HTTPException(status_code=401, detail="Invalid refresh token")
+
+
             return await func(*args, **kwargs)
         
         return wrapper
