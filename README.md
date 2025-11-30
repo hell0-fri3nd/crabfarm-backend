@@ -9,7 +9,7 @@ Note: Please Install requirement.txt
 ''' alembic upgrade head
 
 ## Run Application
-''' uvicorn App:app --reload --host=0.0.0.0 --port=4572
+''' uvicorn App:app --reload --host=192.168.100.11 --port=4572
 
 or
 
