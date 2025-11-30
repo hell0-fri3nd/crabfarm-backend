@@ -76,7 +76,7 @@ async def login(request: Request, response: Response, db: Session = Depends(get_
         key="refresh_token",
         value=refresh_token,
         httponly=True,
-        secure=True,
+        secure=False,
         samesite="Lax",
         max_age= 60 * 60 * 24 * expiration   # 1 day or 30 days
     )
