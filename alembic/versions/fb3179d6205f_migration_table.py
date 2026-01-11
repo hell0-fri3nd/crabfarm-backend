@@ -34,8 +34,6 @@ def upgrade() -> None:
     op.create_table('crab',
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('name', sa.String(length=50), nullable=False),
-    sa.Column('width', sa.Numeric(precision=10, scale=2), server_default=sa.text('0'), nullable=False),
-    sa.Column('weight', sa.Numeric(precision=10, scale=2), server_default=sa.text('0'), nullable=False),
     sa.Column('group_by', sa.String(length=50), nullable=False),
     sa.PrimaryKeyConstraint('id'),
     sa.UniqueConstraint('name')
@@ -45,6 +43,8 @@ def upgrade() -> None:
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('crab_id', sa.Integer(), nullable=True),
     sa.Column('type', sa.Enum('prediction', 'actual', name='crab_logs_enum'), nullable=False),
+    sa.Column('width', sa.Numeric(precision=10, scale=2), server_default=sa.text('0'), nullable=False),
+    sa.Column('weight', sa.Numeric(precision=10, scale=2), server_default=sa.text('0'), nullable=False),
     sa.Column('created_at', sa.TIMESTAMP(), server_default=sa.text('now()'), nullable=False),
     sa.PrimaryKeyConstraint('id')
     )

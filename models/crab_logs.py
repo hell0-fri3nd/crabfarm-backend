@@ -4,7 +4,9 @@ from sqlalchemy import (
     TIMESTAMP, 
     func,
     Enum,
-    Index
+    Index,
+    Numeric,
+    text
 )
 from database import Base
 
@@ -14,6 +16,8 @@ class CrabLogs(Base):
     id         = Column(Integer, primary_key=True, index=True)
     crab_id    = Column(Integer, index=True)
     type       = Column(Enum("prediction", "actual", name="crab_logs_enum"),nullable=False)
+    width      = Column(Numeric(10,2), nullable=False, server_default=text("0"))
+    weight     = Column(Numeric(10,2), nullable=False, server_default=text("0"))
     created_at = Column(TIMESTAMP, nullable=False, server_default=func.now())
 
     __table_args__ = (
