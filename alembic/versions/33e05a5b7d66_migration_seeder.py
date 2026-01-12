@@ -1,8 +1,8 @@
-"""initial seeder
+"""migration seeder
 
-Revision ID: 38f82d2aeb70
-Revises: 4c7a304e1009
-Create Date: 2026-01-11 20:36:03.414615
+Revision ID: 33e05a5b7d66
+Revises: fb3179d6205f
+Create Date: 2026-01-11 23:17:10.040321
 
 """
 from typing import Sequence, Union
@@ -12,8 +12,8 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = '6c773fe41d7f'
-down_revision: Union[str, Sequence[str], None] = '4c7a304e1009'
+revision: str = '33e05a5b7d66'
+down_revision: Union[str, Sequence[str], None] = 'fb3179d6205f'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
@@ -117,6 +117,7 @@ def upgrade() -> None:
     )
         
     pass
+    # ### end Alembic commands ###
 
 
 def downgrade() -> None:
