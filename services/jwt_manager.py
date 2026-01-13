@@ -21,21 +21,11 @@ class JWTManager:
 
     def decode_token(self, token: str) -> dict:
         """Decodes the JWT token and returns the payload."""
-        try:
-            payload = jwt.decode(token, self.__secret_key, algorithms=[self.__algorithm])
-            
-            return payload
-        
-        except jwt.ExpiredSignatureError:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED, 
-                detail="Token expired"
-            )
-        except jwt.InvalidTokenError:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED, 
-                detail="Invalid token"
-            )
+        return jwt.decode(
+            token,
+            self.__secret_key,
+            algorithms=[self.__algorithm]
+        )
 
     def create_refresh_token(self, data: dict, days = 1) -> str:
         to_encode = data.copy()
@@ -47,22 +37,19 @@ class JWTManager:
     def requires_access(self, func):
         @wraps(func)
         async def wrapper(*args, **kwargs):
-            request: Request = kwargs.get("request")
-            if not request:
-                raise HTTPException(status_code=500, detail="Request object not found for auth check")
-
-            # Extract token from the Authorization header
-            auth_header = request.headers.get("Authorization")
-            if not auth_header or not auth_header.startswith("Bearer "):
+            
+            request: Request = kwargs.get("request") or args[0]
+            access_token = request.cookies.get("access_token")
+            
+            if not access_token:
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED, 
                     detail="MISSING_ACCESS_TOKEN",
                     headers={"WWW-Authenticate": "Bearer error='MISSING_TOKEN'"}
                 )
-            
-            token = auth_header.split(" ")[1]
+
             try:
-                self.decode_token(token)
+                self.decode_token(access_token)
             
             except ExpiredSignatureError:
                 raise HTTPException(
@@ -88,7 +75,6 @@ class JWTManager:
         return wrapper
     
     def requires_refresh(self, func):
-
         @wraps(func)
         async def wrapper(*args, **kwargs):
             
