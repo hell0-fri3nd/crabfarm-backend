@@ -1,14 +1,18 @@
 
-from fastapi import APIRouter, Depends,status, HTTPException, Request,Response
+from fastapi import APIRouter, Depends,status, HTTPException, Request, Response
+from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 from database import SessionLocal, engine
 from models import Users,Base
 from services import JWTManager
+from dotenv import load_dotenv
+from os import getenv
 
 Auth = APIRouter(prefix="/api/v1/auth", tags=["Authentication"])
 
 Base.metadata.create_all(bind=engine)
 jwt_manager = JWTManager()
+load_dotenv()
 
 def get_db():
     db = SessionLocal()
@@ -16,10 +20,25 @@ def get_db():
         yield db
     finally:
         db.close()
+        
+def str_to_bool(value: str | None) -> bool:
+    return value.lower() == "True" if value else False
 
 @Auth.get("/")
 async def read_root():
     return {"message": "Hello Friend! please proceed to given API templates"}
+
+@Auth.get("/status")
+@jwt_manager.requires_refresh
+@jwt_manager.requires_access
+async def refresh_token(request: Request, response: Response, db: Session = Depends(get_db)):
+    return JSONResponse(
+        status_code=status.HTTP_200_OK,
+               content={
+                "status_code": status.HTTP_200_OK,
+                "detail": "Token is valid",
+            }
+    )
 
 @Auth.post("/login")
 async def login(request: Request, response: Response, db: Session = Depends(get_db)):
@@ -63,20 +82,20 @@ async def login(request: Request, response: Response, db: Session = Depends(get_
     access_token = jwt_manager.create_access_token(payload)
     refresh_token = jwt_manager.create_refresh_token(payload,days=expiration)
 
-    # response.set_cookie(
-    #     key="access_token",
-    #     value=access_token,
-    #     httponly=True,
-    #     secure=True,          # use HTTPS in production
-    #     samesite="Lax",
-    #     max_age=60 * 15       # 15 minutes
-    # )
+    response.set_cookie(
+        key="access_token",
+        value=access_token,
+        httponly=str_to_bool(getenv("HTTP_ONLY")),
+        secure=str_to_bool(getenv("SECURE")),          # use HTTPS in production
+        samesite="Lax",
+        max_age=60 * 15       # 15 minutes
+    )
 
     response.set_cookie(
         key="refresh_token",
         value=refresh_token,
-        httponly=True,
-        secure=False,
+        httponly=str_to_bool(getenv("HTTP_ONLY")),
+        secure=str_to_bool(getenv("SECURE")),         
         samesite="Lax",
         max_age= 60 * 60 * 24 * expiration   # 1 day or 30 days
     )
@@ -84,8 +103,7 @@ async def login(request: Request, response: Response, db: Session = Depends(get_
     return {
         "status_code": status.HTTP_200_OK,
         "detail":"Login Successfuly",
-        "data": payload,
-        "access_token": access_token
+        "data": payload
     }
 
 @Auth.post("/pin")
@@ -95,8 +113,8 @@ async def pin(request: Request, response: Response, db: Session = Depends(get_db
 
     try:
         data = await request.json() 
-        auth_header = request.headers.get("Authorization")
-        token = auth_header.split(" ")[1]
+
+        token = request.cookies.get("access_token")
 
         decoded = jwt_manager.decode_token(token)
         email = decoded['email']
@@ -129,6 +147,15 @@ async def pin(request: Request, response: Response, db: Session = Depends(get_db
         }
         
         access_token = jwt_manager.create_access_token(payload)
+    
+        response.set_cookie(
+            key="access_token",
+            value=access_token,
+            httponly=getenv("HTTP_ONLY"),
+            secure=getenv("SECURE"),          # use HTTPS in production
+            samesite="Lax",
+            max_age=60 * 15       # 15 minutes
+        )
 
         return {
             "status_code": status.HTTP_200_OK,
@@ -143,6 +170,7 @@ async def pin(request: Request, response: Response, db: Session = Depends(get_db
 @Auth.post("/logout")
 def logout(response: Response):
     response.delete_cookie("refresh_token")
+    response.delete_cookie("access_token")
     return {
         "status_code": status.HTTP_200_OK,
         "detail": "Successfully logged out",
