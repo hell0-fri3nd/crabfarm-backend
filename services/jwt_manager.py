@@ -21,21 +21,11 @@ class JWTManager:
 
     def decode_token(self, token: str) -> dict:
         """Decodes the JWT token and returns the payload."""
-        try:
-            payload = jwt.decode(token, self.__secret_key, algorithms=[self.__algorithm])
-            
-            return payload
-        
-        except jwt.ExpiredSignatureError:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED, 
-                detail="Token expired"
-            )
-        except jwt.InvalidTokenError:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED, 
-                detail="Invalid token"
-            )
+        return jwt.decode(
+            token,
+            self.__secret_key,
+            algorithms=[self.__algorithm]
+        )
 
     def create_refresh_token(self, data: dict, days = 1) -> str:
         to_encode = data.copy()
@@ -47,25 +37,37 @@ class JWTManager:
     def requires_access(self, func):
         @wraps(func)
         async def wrapper(*args, **kwargs):
-            request: Request = kwargs.get("request")
-            if not request:
-                raise HTTPException(status_code=500, detail="Request object not found for auth check")
-
-            # Extract token from the Authorization header
-            auth_header = request.headers.get("Authorization")
-            if not auth_header or not auth_header.startswith("Bearer "):
+            
+            request: Request = kwargs.get("request") or args[0]
+            access_token = request.cookies.get("access_token")
+            
+            if not access_token:
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED, 
-                    detail="Authorization header missing or invalid format (Bearer token required)"
+                    detail="MISSING_ACCESS_TOKEN",
+                    headers={"WWW-Authenticate": "Bearer error='MISSING_TOKEN'"}
                 )
-            
-            token = auth_header.split(" ")[1]
+
             try:
-                self.decode_token(token)
-            except Exception as e:
+                self.decode_token(access_token)
+            
+            except ExpiredSignatureError:
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
-                    detail=f"Invalid or expired token: {str(e)}"
+                    detail="EXPIRED_ACCESS_TOKEN",
+                    headers={"WWW-Authenticate": "Bearer error='EXPIRED_TOKEN'"}
+                )
+                
+            except InvalidTokenError:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="INVALID_ACCESS_TOKEN",
+                    headers={"WWW-Authenticate": "Bearer error='INVALID_TOKEN'"}
+                )
+            except Exception as e:
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail=str(e)
                 )
     
             return await func(*args, **kwargs)
@@ -73,7 +75,6 @@ class JWTManager:
         return wrapper
     
     def requires_refresh(self, func):
-
         @wraps(func)
         async def wrapper(*args, **kwargs):
             
@@ -81,16 +82,34 @@ class JWTManager:
             refresh_token = request.cookies.get("refresh_token")
             
             if not refresh_token:
-                raise HTTPException(status_code=401, detail="Refresh token missing")
-
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST, 
+                    detail="MISSING_REFRESH_TOKEN",
+                    headers={"WWW-Authenticate": "Bearer error='MISSING_TOKEN'"}
+                )
 
             try:
-                payload = self.decode_token(refresh_token)
-                # Token is valid and not expired
+                self.decode_token(refresh_token)
+          
             except ExpiredSignatureError:
-                raise HTTPException(status_code=401, detail="Refresh token expired")
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="EXPIRED_REFRESH_TOKEN",
+                    headers={"WWW-Authenticate": "Bearer error='EXPIRED_TOKEN'"}
+                )
+                
             except InvalidTokenError:
-                raise HTTPException(status_code=401, detail="Invalid refresh token")
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST, 
+                    detail="INVALID_REFRESH_TOKEN",
+                    headers={"WWW-Authenticate": "Bearer error='INVALID_TOKEN'"}
+                )
+                
+            except Exception as e:
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail=str(e)
+                )
 
 
             return await func(*args, **kwargs)
