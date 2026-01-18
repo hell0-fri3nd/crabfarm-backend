@@ -108,18 +108,17 @@ async def login(request: Request, response: Response, db: Session = Depends(get_
 
 @Auth.post("/pin")
 @jwt_manager.requires_refresh
-@jwt_manager.requires_access
 async def pin(request: Request, response: Response, db: Session = Depends(get_db)):
 
     try:
         data = await request.json() 
 
-        token = request.cookies.get("access_token")
-
-        decoded = jwt_manager.decode_token(token)
+        token = request.cookies.get("refresh_token")
+        token_bytes = token.encode('utf-8')
+        
+        decoded = jwt_manager.decode_token(token_bytes)
         email = decoded['email']
-
-        pin_password = data.get("pin_password")
+        pin_password = data.get("pin")
 
         if not pin_password:
             raise HTTPException(
@@ -137,7 +136,7 @@ async def pin(request: Request, response: Response, db: Session = Depends(get_db
         if not pin_password == user.pin:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Incorrect password"
+                detail="Incorrect pin"
             )
         
         payload = {
@@ -151,20 +150,23 @@ async def pin(request: Request, response: Response, db: Session = Depends(get_db
         response.set_cookie(
             key="access_token",
             value=access_token,
-            httponly=getenv("HTTP_ONLY"),
-            secure=getenv("SECURE"),          # use HTTPS in production
+            httponly=str_to_bool(getenv("HTTP_ONLY")),
+            secure=str_to_bool(getenv("SECURE")),    
             samesite="Lax",
             max_age=60 * 15       # 15 minutes
         )
 
         return {
             "status_code": status.HTTP_200_OK,
-            "detail":"Password Accepted",
+            "detail":"PIN Accepted",
             "access_token": access_token
         },
 
-    except Exception:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid or missing JSON body")
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, 
+            detail=str(e)
+        )
     
     
 @Auth.post("/logout")
