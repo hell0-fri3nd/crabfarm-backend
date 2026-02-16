@@ -158,8 +158,8 @@ async def pin(request: Request, response: Response, db: Session = Depends(get_db
 
         return {
             "status_code": status.HTTP_200_OK,
-            "detail":"PIN Accepted",
-            "access_token": access_token
+            "detail":"PIN Accepted",        
+            "data": payload
         },
 
     except Exception as e:
@@ -177,3 +177,9 @@ def logout(response: Response):
         "status_code": status.HTTP_200_OK,
         "detail": "Successfully logged out",
     }
+    
+@Auth.post("/logout-all")
+async def logout_and_clear_all(response: Response):
+    # This header instructs the browser to clear all cookies for this origin
+    response.headers["Clear-Site-Data"] = '"cookies"'
+    return {"message": "All cookies have been cleared by the browser"}
