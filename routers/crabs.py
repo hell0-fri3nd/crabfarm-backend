@@ -60,7 +60,7 @@ async def insert_logs(request: Request, db: Session = Depends(get_db)):
         crab_id = data.get("crab_id")
         type    = data.get("type")
         width   = data.get("width")
-        weight  = data.get("width")
+        weight  = data.get("weight")
         
         
         new_log = CrabLogs(
