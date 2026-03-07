@@ -24,7 +24,8 @@ def upgrade() -> None:
     users_table = sa.table(
         "users",
         sa.column("email", sa.String),
-        sa.column("password", sa.String)
+        sa.column("password", sa.String),
+        sa.column("pin", sa.String)
     )
     
     op.bulk_insert(
@@ -32,7 +33,8 @@ def upgrade() -> None:
         [
             {
                 "email": "hellofriend@gmail.com",
-                "password": "hellofriend"
+                "password": "hellofriend",
+                "pin": "1234"
             }
         ],
     )
@@ -46,72 +48,114 @@ def upgrade() -> None:
     op.bulk_insert(
         crab_table,
         [
+            # A GROUP
             {
-                "name": "A1_Crab",
+                "name": "A1 CRAB",
                 "group_by": "A"
             },
             {
-                "name": "A2_Crab",
+                "name": "A2 CRAB",
                 "group_by": "A"
             },
             {
-                "name": "A3_Crab",
+                "name": "A3 CRAB",
                 "group_by": "A"
             },
             {
-                "name": "A4_Crab",
+                "name": "A4 CRAB",
+                "group_by": "A"
+            },
+            {
+                "name": "A5 CRAB",
                 "group_by": "A"
             },
             
+            # B GROUP
             {
-                "name": "B1_Crab",
+                "name": "B1 CRAB",
                 "group_by": "B"
             },
             {
-                "name": "B2_Crab",
+                "name": "B2 CRAB",
                 "group_by": "B"
             },
             {
-                "name": "B3_Crab",
+                "name": "B3 CRAB",
                 "group_by": "B"
             },
             {
-                "name": "B4_Crab",
+                "name": "B4 CRAB",
+                "group_by": "B"
+            },
+            {
+                "name": "B5 CRAB",
                 "group_by": "B"
             },
             
+            # C GROUP
             {
-                "name": "C1_Crab",
+                "name": "C1 CRAB",
                 "group_by": "C"
             },
             {
-                "name": "C2_Crab",
+                "name": "C2 CRAB",
+                "group_by": "C"
+            },
+             {
+                "name": "C3 CRAB",
                 "group_by": "C"
             },
             {
-                "name": "C3_Crab",
+                "name": "C4 CRAB",
                 "group_by": "C"
             },
             {
-                "name": "C4_Crab",
+                "name": "C5 CRAB",
                 "group_by": "C"
             },
             
+            # D GROUP
             {
-                "name": "D1_Crab",
+                "name": "D1 GROUP",
                 "group_by": "D"
             },
             {
-                "name": "D2_Crab",
+                "name": "D2 GROUP",
                 "group_by": "D"
             },
             {
-                "name": "D3_Crab",
+                "name": "D3 GROUP",
                 "group_by": "D"
             },
             {
-                "name": "D4_Crab",
+                "name": "D4 GROUP",
                 "group_by": "D"
+            },
+            {
+                "name": "D5 GROUP",
+                "group_by": "D"
+            },
+            
+            # E GROUP
+            {
+                "name": "E1 GROUP",
+                "group_by": "E"
+            },
+            {
+                "name": "E2 GROUP",
+                "group_by": "E"
+            },
+            {
+                "name": "E3 GROUP",
+                "group_by": "E"
+            },
+            {
+                "name": "E4 GROUP",
+                "group_by": "E"
+            },
+            {
+                "name": "E5 GROUP",
+                "group_by": "E"
             }
         ],
     )

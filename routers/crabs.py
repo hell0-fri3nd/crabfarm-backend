@@ -50,6 +50,38 @@ async def read_root(request: Request, db: Session = Depends(get_db)):
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=str(e)
         )
+        
+@Crabs.get("/{crab_group}")
+@jwt_manager.requires_access
+async def read_crabs_by_group(crab_group: str, request: Request, db: Session = Depends(get_db)):
+    
+    try:
+        result = db.execute(select(Crab).where(Crab.group_by == crab_group))
+        crabs = result.scalars().all()
+        
+        data = [
+            {
+                "id": crab.id,
+                "name": crab.name,
+                "group_by": crab.group_by,
+            }
+            for crab in crabs
+        ]
+                
+        return JSONResponse(
+                status_code=status.HTTP_200_OK,
+                content={
+                    "status_code": status.HTTP_200_OK,
+                    "detail": "Success",
+                    "data": data
+                }
+            )   
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e)
+        )
 
 @Crabs.post("/logs")
 @jwt_manager.requires_access
@@ -60,7 +92,7 @@ async def insert_logs(request: Request, db: Session = Depends(get_db)):
         crab_id = data.get("crab_id")
         type    = data.get("type")
         width   = data.get("width")
-        weight  = data.get("width")
+        weight  = data.get("weight")
         
         
         new_log = CrabLogs(
