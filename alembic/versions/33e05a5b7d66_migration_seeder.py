@@ -23,18 +23,22 @@ def upgrade() -> None:
     
     users_table = sa.table(
         "users",
+        sa.column("name", sa.String), 
         sa.column("email", sa.String),
         sa.column("password", sa.String),
-        sa.column("pin", sa.String)
+        sa.column("pin", sa.String),
+        sa.column("roles", sa.String)  # add this
     )
     
     op.bulk_insert(
         users_table,
         [
             {
+                "name": "Hello Friend",
                 "email": "hellofriend@gmail.com",
                 "password": "hellofriend",
-                "pin": "1234"
+                "pin": "1234",
+                "roles": "admin"
             }
         ],
     )
