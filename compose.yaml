@@ -1,19 +1,38 @@
+version: '3.8'
 services:
+
+  mysql:
+    image: mysql:8.0
+    container_name: mysql_db
+    restart: always
+    environment:
+      - MYSQL_ALLOW_EMPTY_PASSWORD=yes
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql:Z
+
   crabfarmbackend:
-    image: crabfarmbackend
+    image: crabfarm-backend
     build:
       context: .
       dockerfile: ./Dockerfile
     ports:
       - 4572:4572
-      
+    volumes:
+      - .:/app:Z
+    depends_on:
+      - mysql
+    command: uvicorn App:app --reload --host 0.0.0.0 --port 4572
     environment:
       DB_CONNECTION: mysql
-      DB_HOST: host.docker.internal   # Connect to your local XAMPP MySQL
+      DB_HOST: mysql
       DB_PORT: 3306
       DB_DATABASE: crabfarm-database
-      DB_USERNAME: root               # Adjust if your XAMPP MySQL has a password
+      DB_USERNAME: root
       DB_PASSWORD: ""
-
     env_file:
       - .env
+
+volumes:
+  mysql_data:
