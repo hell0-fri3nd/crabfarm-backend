@@ -1,5 +1,5 @@
 from fastapi import FastAPI
-from routers import Auth, Crabs, Settings, Gateway
+from routers import Auth, Crabs, Settings, Gateway, WebSockets
 from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI()
@@ -21,3 +21,5 @@ app.include_router(Auth)
 app.include_router(Crabs)
 app.include_router(Settings)
 app.include_router(Gateway)
+
+app.include_router(WebSockets)
