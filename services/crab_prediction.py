@@ -40,6 +40,7 @@ class CrabPrediction():
         dataframe = pd.DataFrame(data, columns=["crab_id", "created_at", "width", "weight"])
         dataframe["created_at"] = pd.to_datetime(dataframe["created_at"])
         dataframe = dataframe.sort_values("created_at")
+        last_date = dataframe["created_at"].max()
         
         dataframe_daily = dataframe.groupby(["crab_id","created_at"]).agg({
             "width":"mean",
@@ -52,11 +53,11 @@ class CrabPrediction():
         max_vals = data.max(axis=0)
         data_scaled = (data - min_vals) / (max_vals - min_vals + 1e-8)
 
-        return data_scaled, min_vals, max_vals
+        return data_scaled, min_vals, max_vals, last_date 
     
     def train(self, data_list,seq_len=5, epochs=200):
         
-        data_scaled, min_vals, max_vals = self.__normalize(data_list)
+        data_scaled, min_vals, max_vals, __ = self.__normalize(data_list)
         X, Y = self.__create_sequences(data_scaled, seq_len)
         
         X_tensor = torch.tensor(X, dtype=torch.float32)
@@ -85,7 +86,7 @@ class CrabPrediction():
         if len(data_list) < seq_len:
             raise Exception("Not enough data")
         
-        data_scaled, min_vals, max_vals = self.__normalize(data_list)
+        data_scaled, min_vals, max_vals, last_date = self.__normalize(data_list)
         seq_input = torch.tensor(data_scaled[-seq_len:], dtype=torch.float32).unsqueeze(0)
 
         predictions_scaled = []
@@ -109,8 +110,8 @@ class CrabPrediction():
             
         # inverse normalize
         predictions = np.array(predictions_scaled) * (max_vals - min_vals) + min_vals
-        result = predictions[:, 1:].tolist()
-        return [[day, width, weight] for day, (width, weight) in enumerate(result,1) ] 
+        result = predictions.tolist()
+        return [[str(crab_id),(last_date + pd.Timedelta(days=day)).strftime('%Y-%m-%d %H:%M:%S'), width, weight] for day, (crab_id, width, weight) in enumerate(result,1) ] 
 
 
 
@@ -136,17 +137,18 @@ class CrabPrediction():
 
 
 # data_list = [
-#     [3,"2026-02-24", 15.01, 0.0],
-#     [3,"2026-02-25", 15.39, 0.2],
-#     [3,"2026-02-26", 16.0, 0.3],
-#     [3,"2026-02-27", 16.5, 0.5],
-#     [3,"2026-02-28", 16.8, 0.55],
-#     [3,"2026-03-01", 15.01, 0.0],
-#     [3,"2026-03-02", 15.39, 0.2],
-#     [3,"2026-03-03", 16.0, 0.3],
-#     [3,"2026-03-04", 16.5, 0.5],
-#     [3,"2026-03-05", 16.8, 0.55],
+#     [3,"2026-02-24 18:47:36", 15.01, 0.0],
+#     [3,"2026-02-25 18:47:36", 15.39, 0.2],
+#     [3,"2026-02-26 18:47:36", 16.0, 0.3],
+#     [3,"2026-02-27 18:47:36", 16.5, 0.5],
+#     [3,"2026-02-28 18:47:36", 16.8, 0.55],
+#     [3,"2026-03-01 18:47:36", 15.01, 0.0],
+#     [3,"2026-03-02 18:47:36", 15.39, 0.2],
+#     [3,"2026-03-03 18:47:36", 16.0, 0.3],
+#     [3,"2026-03-04 18:47:36", 16.5, 0.5],
+#     [3,"2026-03-05 18:47:36", 16.8, 0.55],
 # ]
 
 # result = CrabPrediction.predict_next_days(data_list=data_list)
-# print(result)
+# for crab_id, created_at, width, weight in result:
+#     print(f"Crab ID: {crab_id}, Date: {created_at}, Predicted Width: {width:.2f}, Predicted Weight: {weight:.2f}")
