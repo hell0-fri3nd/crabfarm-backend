@@ -1,16 +1,16 @@
-
 from fastapi import APIRouter, Depends,status, HTTPException, Request,Query
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import select, or_
 from database import SessionLocal, engine
 from models import Crab,CrabLogs, Base
-from services import JWTManager
+from services import JWTManager, CrabPrediction
 
 Crabs = APIRouter(prefix="/api/v1/crabs", tags=["Crab Management"])
 
 Base.metadata.create_all(bind=engine)
 jwt_manager = JWTManager()
+crab_prediction = CrabPrediction()
 
 def get_db():
     db = SessionLocal()
@@ -45,6 +45,61 @@ async def read_root(request: Request, db: Session = Depends(get_db)):
                 }
             )   
 
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e)
+        )
+
+@Crabs.get("/predict/{crab_id}") 
+@jwt_manager.requires_access
+async def predict(crab_id: str,request: Request, db: Session = Depends(get_db)):
+    
+    try:
+
+        result = db.execute(
+            select(CrabLogs)
+            .where(
+                CrabLogs.crab_id == crab_id,
+                CrabLogs.type == "actual"
+            )
+            .order_by(CrabLogs.created_at.desc())
+            .limit(5)
+        )
+        logs = result.scalars().all()
+        
+        if not logs:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No logs found for prediction")
+        
+        data = [
+            {
+                "crab_id": log.crab_id,
+                "created_at": (log.created_at).strftime('%Y-%m-%d %H:%M:%S'),
+                "width": float(log.width),
+                "weight": float(log.weight)
+            }
+            for log in logs
+        ]
+        
+        results = [
+            {
+                "crab_id": crab_id,
+                "created_at": created_at,
+                "width": float(width),
+                "weight": float(weight)
+            }
+            for crab_id, created_at, width, weight in crab_prediction.predict_next_days(data_list=data)
+        ]
+        
+        return JSONResponse(
+            status_code=status.HTTP_200_OK,
+            content={
+                "status_code": status.HTTP_200_OK,
+                "detail": f"Predicted next 5 days successfully",
+                "data": results
+            }
+        )
+                
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -219,3 +274,4 @@ async def view_all_logs(log_type: str, request: Request, db: Session = Depends(g
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=str(e)
         )
+
