@@ -88,7 +88,7 @@ async def predict(crab_id: str,request: Request, db: Session = Depends(get_db)):
                 "width": float(width),
                 "weight": float(weight)
             }
-            for crab_id, created_at, width, weight in crab_prediction.predict_next_days(data_list=data)
+            for  created_at, width, weight in crab_prediction.predict_next_days(data_list=data)
         ]
         
         return JSONResponse(
@@ -172,22 +172,17 @@ async def insert_logs(request: Request, db: Session = Depends(get_db)):
             detail=str(e)
     )
 
-
-@Crabs.get("/logs/{log_type}/{crab_id}/") 
+@Crabs.get("/logs/{log_type}") 
 @jwt_manager.requires_access
-async def view_logs(log_type: str, crab_id: int, request: Request, db: Session = Depends(get_db)): 
+async def view_all_logs(log_type: str, request: Request, db: Session = Depends(get_db)): 
     
     try:
         
-        query = select(
-            CrabLogs, Crab
-        ).join(Crab, CrabLogs.crab_id == Crab.id)
+        query = select(CrabLogs, Crab).join(Crab, CrabLogs.crab_id == Crab.id)
         
         # OR conditions
         conditions = []
-        if crab_id is not None:
-            conditions.append(CrabLogs.crab_id == crab_id)
-        if log_type  is not None:
+        if log_type.lower() != "all":
             conditions.append(CrabLogs.type == log_type)
         
         if conditions:
@@ -206,7 +201,8 @@ async def view_logs(log_type: str, crab_id: int, request: Request, db: Session =
                 "width": float(log.width),
                 "weight": float(log.weight),
                 "created_at": log.created_at.isoformat(),
-                "crab_name": crab.name
+                "crab_name": crab.name,
+                "group_by": crab.group_by
             }
             for log, crab in crab_logs
         ]
@@ -224,19 +220,24 @@ async def view_logs(log_type: str, crab_id: int, request: Request, db: Session =
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=str(e)
-        )
+    )
 
-@Crabs.get("/logs/{log_type}") 
+
+@Crabs.get("/logs/{log_type}/{crab_id}/") 
 @jwt_manager.requires_access
-async def view_all_logs(log_type: str, request: Request, db: Session = Depends(get_db)): 
+async def view_logs(log_type: str, crab_id: int, request: Request, db: Session = Depends(get_db)): 
     
     try:
         
-        query = select(CrabLogs, Crab).join(Crab, CrabLogs.crab_id == Crab.id)
+        query = select(
+            CrabLogs, Crab
+        ).join(Crab, CrabLogs.crab_id == Crab.id)
         
         # OR conditions
         conditions = []
-        if log_type.lower() != "all":
+        if crab_id is not None:
+            conditions.append(CrabLogs.crab_id == crab_id)
+        if log_type  is not None:
             conditions.append(CrabLogs.type == log_type)
         
         if conditions:

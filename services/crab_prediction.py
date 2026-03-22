@@ -6,7 +6,7 @@ import torch.optim as optim
 
 
 class CrabModel(nn.Module):
-    def __init__(self, input_size=3, hidden_size=16):
+    def __init__(self, input_size=2, hidden_size=16):
         super().__init__()
         self.lstm = nn.LSTM(input_size, hidden_size, batch_first=True)
         self.fc = nn.Linear(hidden_size, input_size)
@@ -47,7 +47,7 @@ class CrabPrediction():
             "weight":"mean"
         }).reset_index()
         
-        data = dataframe_daily[["crab_id","width","weight"]].values.astype(np.float32)
+        data = dataframe_daily[["width","weight"]].values.astype(np.float32)
 
         min_vals = data.min(axis=0)
         max_vals = data.max(axis=0)
@@ -93,12 +93,11 @@ class CrabPrediction():
         for _ in range(days_ahead):
             
             pred = self.model(seq_input).detach().numpy()
-            crab_id_scaled = seq_input[0][-1][0]
+            # crab_id_scaled = seq_input[0][-1][0]
 
             new_row = np.array([
-                crab_id_scaled,
-                pred[0][1],
-                pred[0][2]
+                pred[0][0],
+                pred[0][1]
             ])
 
             predictions_scaled.append(new_row)
@@ -111,7 +110,7 @@ class CrabPrediction():
         # inverse normalize
         predictions = np.array(predictions_scaled) * (max_vals - min_vals) + min_vals
         result = predictions.tolist()
-        return [[str(crab_id),(last_date + pd.Timedelta(days=day)).strftime('%Y-%m-%d %H:%M:%S'), width, weight] for day, (crab_id, width, weight) in enumerate(result,1) ] 
+        return [[(last_date + pd.Timedelta(days=day)).strftime('%Y-%m-%d %H:%M:%S'), width, weight] for day, (width, weight) in enumerate(result,1) ] 
 
 
 
@@ -150,5 +149,5 @@ class CrabPrediction():
 # ]
 
 # result = CrabPrediction.predict_next_days(data_list=data_list)
-# for crab_id, created_at, width, weight in result:
-#     print(f"Crab ID: {crab_id}, Date: {created_at}, Predicted Width: {width:.2f}, Predicted Weight: {weight:.2f}")
+# for created_at, width, weight in result:
+#     print(f"Crab ID: {14}, Date: {created_at}, Predicted Width: {width:.2f}, Predicted Weight: {weight:.2f}")
