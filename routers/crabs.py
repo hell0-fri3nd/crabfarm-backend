@@ -1,16 +1,16 @@
-
 from fastapi import APIRouter, Depends,status, HTTPException, Request,Query
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import select, or_
 from database import SessionLocal, engine
 from models import Crab,CrabLogs, Base
-from services import JWTManager
+from services import JWTManager, CrabPrediction
 
 Crabs = APIRouter(prefix="/api/v1/crabs", tags=["Crab Management"])
 
 Base.metadata.create_all(bind=engine)
 jwt_manager = JWTManager()
+crab_prediction = CrabPrediction()
 
 def get_db():
     db = SessionLocal()
@@ -45,6 +45,61 @@ async def read_root(request: Request, db: Session = Depends(get_db)):
                 }
             )   
 
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e)
+        )
+
+@Crabs.get("/predict/{crab_id}") 
+@jwt_manager.requires_access
+async def predict(crab_id: str,request: Request, db: Session = Depends(get_db)):
+    
+    try:
+
+        result = db.execute(
+            select(CrabLogs)
+            .where(
+                CrabLogs.crab_id == crab_id,
+                CrabLogs.type == "actual"
+            )
+            .order_by(CrabLogs.created_at.desc())
+            .limit(5)
+        )
+        logs = result.scalars().all()
+        
+        if not logs:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No logs found for prediction")
+        
+        data = [
+            {
+                "crab_id": log.crab_id,
+                "created_at": (log.created_at).strftime('%Y-%m-%d %H:%M:%S'),
+                "width": float(log.width),
+                "weight": float(log.weight)
+            }
+            for log in logs
+        ]
+        
+        results = [
+            {
+                "crab_id": crab_id,
+                "created_at": created_at,
+                "width": float(width),
+                "weight": float(weight)
+            }
+            for  created_at, width, weight in crab_prediction.predict_next_days(data_list=data)
+        ]
+        
+        return JSONResponse(
+            status_code=status.HTTP_200_OK,
+            content={
+                "status_code": status.HTTP_200_OK,
+                "detail": f"Predicted next 5 days successfully",
+                "data": results
+            }
+        )
+                
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -117,6 +172,56 @@ async def insert_logs(request: Request, db: Session = Depends(get_db)):
             detail=str(e)
     )
 
+@Crabs.get("/logs/{log_type}") 
+@jwt_manager.requires_access
+async def view_all_logs(log_type: str, request: Request, db: Session = Depends(get_db)): 
+    
+    try:
+        
+        query = select(CrabLogs, Crab).join(Crab, CrabLogs.crab_id == Crab.id)
+        
+        # OR conditions
+        conditions = []
+        if log_type.lower() != "all":
+            conditions.append(CrabLogs.type == log_type)
+        
+        if conditions:
+            query = query.where(or_(*conditions))
+            
+        crab_logs = db.execute(query).all()  # returns list of (CrabLogs, Crab)
+
+        if not crab_logs:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No logs found matching criteria")
+    
+        data = [
+            {
+                "log_id": log.id,
+                "crab_id": log.crab_id,
+                "type": log.type,
+                "width": float(log.width),
+                "weight": float(log.weight),
+                "created_at": log.created_at.isoformat(),
+                "crab_name": crab.name,
+                "group_by": crab.group_by
+            }
+            for log, crab in crab_logs
+        ]
+        
+        return JSONResponse(
+            status_code=status.HTTP_200_OK,
+            content={
+                "status_code": status.HTTP_200_OK,
+                "detail": "Logs fetched successfully",
+                "data": data
+            }
+        )
+                
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e)
+    )
+
 
 @Crabs.get("/logs/{log_type}/{crab_id}/") 
 @jwt_manager.requires_access
@@ -171,51 +276,3 @@ async def view_logs(log_type: str, crab_id: int, request: Request, db: Session =
             detail=str(e)
         )
 
-@Crabs.get("/logs/{log_type}") 
-@jwt_manager.requires_access
-async def view_all_logs(log_type: str, request: Request, db: Session = Depends(get_db)): 
-    
-    try:
-        
-        query = select(CrabLogs, Crab).join(Crab, CrabLogs.crab_id == Crab.id)
-        
-        # OR conditions
-        conditions = []
-        if log_type.lower() != "all":
-            conditions.append(CrabLogs.type == log_type)
-        
-        if conditions:
-            query = query.where(or_(*conditions))
-            
-        crab_logs = db.execute(query).all()  # returns list of (CrabLogs, Crab)
-
-        if not crab_logs:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No logs found matching criteria")
-    
-        data = [
-            {
-                "log_id": log.id,
-                "crab_id": log.crab_id,
-                "type": log.type,
-                "width": float(log.width),
-                "weight": float(log.weight),
-                "created_at": log.created_at.isoformat(),
-                "crab_name": crab.name
-            }
-            for log, crab in crab_logs
-        ]
-        
-        return JSONResponse(
-            status_code=status.HTTP_200_OK,
-            content={
-                "status_code": status.HTTP_200_OK,
-                "detail": "Logs fetched successfully",
-                "data": data
-            }
-        )
-                
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(e)
-        )
