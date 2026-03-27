@@ -1,5 +1,6 @@
 import pandas as pd
 import numpy as np
+import os
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -20,7 +21,9 @@ class CrabPrediction():
     def __init__(self):
         super().__init__()
         
-        self.PATH = "h:/Personal Projects/crabfarm/crabfarm-backend/services/model/crab_model.pt"
+
+        BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+        self.PATH = os.path.join(BASE_DIR, "model", "crab_model.pt")
 
         self.model = CrabModel()
         self.criterion = nn.MSELoss()
