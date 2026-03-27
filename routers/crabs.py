@@ -152,7 +152,7 @@ async def insert_logs(request: Request, db: Session = Depends(get_db)):
         
         new_log = CrabLogs(
             crab_id=crab_id,
-            type=type,   # must match Enum values
+            type=type,
             width=width,
             weight=weight
         )
@@ -174,21 +174,23 @@ async def insert_logs(request: Request, db: Session = Depends(get_db)):
 
 @Crabs.get("/logs/{log_type}") 
 @jwt_manager.requires_access
-async def view_all_logs(log_type: str, request: Request, db: Session = Depends(get_db)): 
+async def view_all_logs(log_type: str, request: Request, page: int = 1, limit: int = 14, db: Session = Depends(get_db)): 
     
     try:
         
         query = select(CrabLogs, Crab).join(Crab, CrabLogs.crab_id == Crab.id)
         
-        # OR conditions
         conditions = []
         if log_type.lower() != "all":
             conditions.append(CrabLogs.type == log_type)
         
         if conditions:
             query = query.where(or_(*conditions))
-            
-        crab_logs = db.execute(query).all()  # returns list of (CrabLogs, Crab)
+        
+        offset = (page - 1) * limit
+        query = query.offset(offset).limit(limit)
+        
+        crab_logs = db.execute(query).all()
 
         if not crab_logs:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No logs found matching criteria")
