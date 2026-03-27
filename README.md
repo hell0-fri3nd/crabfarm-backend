@@ -40,7 +40,7 @@ Start the FastAPI application using **Uvicorn**.
 > ⚠️ Note: Replace the host IP with your machine's actual IP address if needed.
 
 ```bash
-uvicorn App:app --reload --host 192.168.100.11 --port 4572
+uvicorn App:app --reload --host 0.0.0.0 --port 4572
 ```
 
 ### Server Parameters
