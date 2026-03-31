@@ -51,61 +51,6 @@ async def read_root(request: Request, db: Session = Depends(get_db)):
             detail=str(e)
         )
 
-@Crabs.get("/predict/{crab_id}") 
-@jwt_manager.requires_access
-async def predict(crab_id: str,request: Request, db: Session = Depends(get_db)):
-    
-    try:
-
-        result = db.execute(
-            select(CrabLogs)
-            .where(
-                CrabLogs.crab_id == crab_id,
-                CrabLogs.type == "actual"
-            )
-            .order_by(CrabLogs.created_at.desc())
-            .limit(5)
-        )
-        logs = result.scalars().all()
-        
-        if not logs:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No logs found for prediction")
-        
-        data = [
-            {
-                "crab_id": log.crab_id,
-                "created_at": (log.created_at).strftime('%Y-%m-%d %H:%M:%S'),
-                "width": float(log.width),
-                "weight": float(log.weight)
-            }
-            for log in logs
-        ]
-        
-        results = [
-            {
-                "crab_id": crab_id,
-                "created_at": created_at,
-                "width": float(width),
-                "weight": float(weight)
-            }
-            for  created_at, width, weight in crab_prediction.predict_next_days(data_list=data)
-        ]
-        
-        return JSONResponse(
-            status_code=status.HTTP_200_OK,
-            content={
-                "status_code": status.HTTP_200_OK,
-                "detail": f"Predicted next 5 days successfully",
-                "data": results
-            }
-        )
-                
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(e)
-        )
-        
 @Crabs.get("/{crab_group}")
 @jwt_manager.requires_access
 async def read_crabs_by_group(crab_group: str, request: Request, db: Session = Depends(get_db)):
@@ -174,7 +119,7 @@ async def insert_logs(request: Request, db: Session = Depends(get_db)):
 
 @Crabs.get("/logs/{log_type}") 
 @jwt_manager.requires_access
-async def view_all_logs(log_type: str, request: Request, page: int = 1, limit: int = 14, db: Session = Depends(get_db)): 
+async def view_all_logs(log_type: str, request: Request, page: int = 1, limit: int = 70, db: Session = Depends(get_db)): 
     
     try:
         
@@ -187,8 +132,8 @@ async def view_all_logs(log_type: str, request: Request, page: int = 1, limit: i
         if conditions:
             query = query.where(or_(*conditions))
         
-        offset = (page - 1) * limit
-        query = query.offset(offset).limit(limit)
+        # offset = (page - 1) * limit
+        # query = query.offset(offset).limit(limit)
         
         crab_logs = db.execute(query).all()
 
