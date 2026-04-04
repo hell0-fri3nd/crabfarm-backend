@@ -4,7 +4,7 @@ from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import select, or_, desc
 from database import SessionLocal, engine
-from models import Crab,SchedulerSettings, Base
+from models import SchedulerSettings, Base
 from services import JWTManager
 
 Settings = APIRouter(prefix="/api/v1/settings", tags=["Settings"])

@@ -11,3 +11,4 @@ numpy==2.4.3
 torch==2.10.0
 torchvision==0.25.0
 websockets==16.0
+requests==2.33.1
