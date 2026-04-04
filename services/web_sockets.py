@@ -22,5 +22,15 @@ class WebSockets:
         await websocket.send_text(message)
 
     async def broadcast(self, message: str):
+        dead_connections = []
+
         for connection in self.active_connections:
-            await connection.send_text(message)
+            try:
+                await connection.send_text(message)
+            except Exception as e:
+                print("⚠️ Broadcast failed:", e)
+                dead_connections.append(connection)
+
+        # cleanup AFTER loop
+        for conn in dead_connections:
+            self.disconnect(conn)
