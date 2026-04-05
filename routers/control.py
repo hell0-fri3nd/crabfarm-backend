@@ -1,16 +1,24 @@
-from fastapi import APIRouter, Request, status
+from fastapi import APIRouter, Depends, Request, status, HTTPException
 from fastapi.responses import JSONResponse
+from models.scheduler_settings import SchedulerSettings
 from services import JWTManager
-
+from sqlalchemy.orm import Session
+from sqlalchemy import select
 from services import ESP32Config
 from services import JWTManager
-
+from database import SessionLocal, engine
 
 Control = APIRouter(prefix="/api/v1/controls", tags=["ESP32 Controller"])
 jwt_manager = JWTManager()
 get_esp32_client = ESP32Config()
 
-
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+        
 @Control.get("/status")
 @jwt_manager.requires_access
 async def get_esp_status(request: Request):
@@ -127,3 +135,140 @@ async def set_dispenser(index: int,request: Request):
             "detail": message
         }
     )
+
+
+@Control.post('/schedule')
+@jwt_manager.requires_access
+async def post_schedule(index: int,request: Request):
+    
+    if not 0 <= index < 25:
+        return JSONResponse(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            content={
+                "status_code": status.HTTP_400_BAD_REQUEST,
+                "detail": "Invalid dispenser index"
+            }
+        )
+    
+    result = get_esp32_client.set_dispenser_state(index, True)
+    message = result if 'error' not in result else result['error']
+    status_code = status.HTTP_200_OK if 'error' not in result else status.HTTP_500_INTERNAL_SERVER_ERROR     
+    
+    return JSONResponse(
+        status_code=status_code,
+        content={
+            "status_code": status_code,
+            "detail": message
+        }
+    )
+    
+@Control.post('/schedule')
+@jwt_manager.requires_access
+async def insert_schedule( request: Request, db: Session = Depends(get_db)):
+    try:
+        
+        data            = await request.json()  
+        type            = data.get("type")
+        scheduler_type  = data.get("scheduler_type")
+        hour            = data.get("hour")
+        seconds         = data.get("seconds")
+        is_enabled      = data.get("is_enabled")
+        
+        token = request.cookies.get("refresh_token")
+        token_bytes = token.encode('utf-8')
+        decoded = jwt_manager.decode_token(token_bytes)
+        
+        insert_scheduler = SchedulerSettings(
+            type=type,
+            scheduler_type=scheduler_type,
+            hour=hour,
+            seconds=seconds,
+            is_enabled=is_enabled,
+            created_by=decoded["name"]
+        )
+        db.add(insert_scheduler)
+        db.commit()
+        db.refresh(insert_scheduler)
+        return JSONResponse(
+            status_code=status.HTTP_201_CREATED,
+            content={
+                "status_code": status.HTTP_201_CREATED,
+                "detail": "New Schedule inserted successfully"
+            }
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e)
+        )
+
+@Control.get('/schedule')
+@jwt_manager.requires_access
+async def get_schedules(request: Request, db: Session = Depends(get_db)):
+    try:
+        
+        result = db.execute(select(SchedulerSettings))
+        schedules = result.scalars().all()
+        
+        data = [
+            {
+                "id": schedule.id,
+                "type": schedule.type,
+                "scheduler_type": schedule.scheduler_type,
+                "hour": schedule.hour,
+                "seconds": schedule.seconds,
+                "is_enabled": schedule.is_enabled
+            }
+            for schedule in schedules
+        ]
+        
+        return JSONResponse(
+            status_code=status.HTTP_200_OK,
+            content={
+                "status_code": status.HTTP_200_OK,
+                "detail": "Schedules retrieved successfully",
+                "data": data
+            }
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e)
+        )
+
+@Control.patch('/schedule')
+@jwt_manager.requires_access
+async def update_schedule(request: Request, db: Session = Depends(get_db)):
+    try:
+        
+        data            = await request.json()  
+        id              = data.get("id")
+        is_enabled      = data.get("is_enabled")
+        result = db.execute(select(SchedulerSettings).where(SchedulerSettings.id == id))
+        schedule = result.scalar_one_or_none()
+        
+        if not schedule:
+            return JSONResponse(
+                status_code=status.HTTP_404_NOT_FOUND,
+                content={
+                    "status_code": status.HTTP_404_NOT_FOUND,
+                    "detail": "Schedule not found"
+                }
+            )
+            
+        schedule.is_enabled = is_enabled
+        db.commit()
+        db.refresh(schedule)
+        return JSONResponse(
+            status_code=status.HTTP_200_OK,
+            content={
+                "status_code": status.HTTP_200_OK,
+                "detail": "Schedule updated successfully"
+            }
+        )
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e)
+        )
