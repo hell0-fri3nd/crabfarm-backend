@@ -1,17 +1,19 @@
 from fastapi import APIRouter, Depends, Request, status, HTTPException
 from fastapi.responses import JSONResponse
 from models.scheduler_settings import SchedulerSettings
-from services import JWTManager
+
 from sqlalchemy.orm import Session
 from sqlalchemy import select
-from services import ESP32Config
-from services import JWTManager
-from database import SessionLocal, engine
+from services import ESP32Config,JWTManager,SchedulerManager
+
+from database import SessionLocal
+
 
 Control = APIRouter(prefix="/api/v1/controls", tags=["ESP32 Controller"])
 jwt_manager = JWTManager()
 get_esp32_client = ESP32Config()
-
+scheduler_manager = SchedulerManager()
+        
 def get_db():
     db = SessionLocal()
     try:
@@ -136,31 +138,6 @@ async def set_dispenser(index: int,request: Request):
         }
     )
 
-
-@Control.post('/schedule')
-@jwt_manager.requires_access
-async def post_schedule(index: int,request: Request):
-    
-    if not 0 <= index < 25:
-        return JSONResponse(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            content={
-                "status_code": status.HTTP_400_BAD_REQUEST,
-                "detail": "Invalid dispenser index"
-            }
-        )
-    
-    result = get_esp32_client.set_dispenser_state(index, True)
-    message = result if 'error' not in result else result['error']
-    status_code = status.HTTP_200_OK if 'error' not in result else status.HTTP_500_INTERNAL_SERVER_ERROR     
-    
-    return JSONResponse(
-        status_code=status_code,
-        content={
-            "status_code": status_code,
-            "detail": message
-        }
-    )
     
 @Control.post('/schedule')
 @jwt_manager.requires_access
@@ -189,6 +166,9 @@ async def insert_schedule( request: Request, db: Session = Depends(get_db)):
         db.add(insert_scheduler)
         db.commit()
         db.refresh(insert_scheduler)
+        print("Inserted Schedule ID:", insert_scheduler.id)
+        scheduler_manager.sync_job(insert_scheduler)
+        
         return JSONResponse(
             status_code=status.HTTP_201_CREATED,
             content={

@@ -1,8 +1,18 @@
 from fastapi import FastAPI
 from routers import Auth, Crabs, Settings, Gateway,Prediction,Control, WebSockets
 from fastapi.middleware.cors import CORSMiddleware
+from services import SchedulerManager
+from contextlib import asynccontextmanager
 
-app = FastAPI()
+scheduler_service = SchedulerManager()
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    scheduler_service.load_all()
+    yield
+    
+app = FastAPI(lifespan=lifespan)
+
 
 origins = [
     "http://localhost:7987",

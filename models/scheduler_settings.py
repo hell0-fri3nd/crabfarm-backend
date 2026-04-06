@@ -12,3 +12,4 @@ class SchedulerSettings(Base):
     is_enabled      = Column(Boolean, nullable=False, server_default=text("false"))
     created_at      = Column(TIMESTAMP, nullable=False, server_default=func.now())
     created_by      = Column(String(150), nullable=False)
+    last_run        = Column(TIMESTAMP, nullable=True)
