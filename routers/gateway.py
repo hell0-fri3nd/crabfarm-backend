@@ -7,7 +7,7 @@ import httpx
 Gateway = APIRouter(prefix="/api/v1/gateway", tags=["API Gateway"])
 jwt_manager = JWTManager()
 SERVICES = {
-    "raspberry": "http://192.168.100.11:4573",
+    "raspberry": "http://192.168.1.19:4573",
 }
 
 
