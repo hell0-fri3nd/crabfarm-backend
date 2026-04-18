@@ -3,7 +3,10 @@ from routers import Auth, Crabs, Settings, Gateway,Prediction,Control, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
 from services import SchedulerManager
 from contextlib import asynccontextmanager
+from dotenv import load_dotenv
+from os import getenv
 
+load_dotenv()
 scheduler_service = SchedulerManager()
 
 @asynccontextmanager
@@ -21,7 +24,7 @@ origins = [
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,  # or ["*"] for development
+    allow_origins=getenv("CORS_ORIGINS").split(","),  # or ["*"] for development
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

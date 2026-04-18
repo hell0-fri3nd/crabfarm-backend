@@ -1,13 +1,16 @@
 from fastapi import APIRouter, Request, Response
 from services import JWTManager
+from dotenv import load_dotenv
+from os import getenv
 import httpx
 
 
+load_dotenv()
 
 Gateway = APIRouter(prefix="/api/v1/gateway", tags=["API Gateway"])
 jwt_manager = JWTManager()
 SERVICES = {
-    "raspberry": "http://192.168.1.19:4573",
+    "raspberry": getenv("RASPBERRY_IP"),
 }
 
 
