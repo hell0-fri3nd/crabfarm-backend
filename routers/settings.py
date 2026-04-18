@@ -66,7 +66,11 @@ async def post_schedules(request: Request, db: Session = Depends(get_db)):
         seconds = data.get("seconds")
         is_enabled = data.get("is_enabled")
         scheduler_type = data.get("scheduler_type")
-        created_by = data.get("created_by")
+        
+        token = request.cookies.get("refresh_token")
+        token_bytes = token.encode('utf-8')
+        decoded = jwt_manager.decode_token(token_bytes)
+        created_by = decoded["name"]
         
         new_schedule = SchedulerSettings(
             type=type,
@@ -101,7 +105,7 @@ async def put_schedules(request: Request, db: Session = Depends(get_db)):
     try:
         
         data    = await request.json()  
-        schedule_id = data.get("id")
+        schedule_id = data.get("id") 
         
         if not schedule_id:
             raise HTTPException(
