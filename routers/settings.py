@@ -4,7 +4,7 @@ from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import select, or_, desc
 from database import SessionLocal, engine
-from models import SchedulerSettings, Base
+from models import SchedulerSettings, Base, ActivityLogs
 from services import JWTManager
 
 Settings = APIRouter(prefix="/api/v1/settings", tags=["Settings"])
@@ -18,6 +18,16 @@ def get_db():
         yield db
     finally:
         db.close()
+        
+def log_activity(db, activity_type, description):
+    log = ActivityLogs(
+        activity_type=activity_type,
+        description=description
+    )
+    db.add(log)
+    db.commit()
+    db.refresh(log)
+    return log
         
 @Settings.get("/schedules")
 @jwt_manager.requires_access
@@ -71,6 +81,7 @@ async def post_schedules(request: Request, db: Session = Depends(get_db)):
         token_bytes = token.encode('utf-8')
         decoded = jwt_manager.decode_token(token_bytes)
         created_by = decoded["name"]
+        email = decoded["email"]
         
         new_schedule = SchedulerSettings(
             type=type,
@@ -84,6 +95,7 @@ async def post_schedules(request: Request, db: Session = Depends(get_db)):
         db.commit()
         db.refresh(new_schedule)
         
+        log_activity(db, "scheduler", f"User {email} created a new schedule with schedule id {new_schedule.id}")
         return JSONResponse(
             status_code=status.HTTP_201_CREATED,
             content={
@@ -132,6 +144,12 @@ async def put_schedules(request: Request, db: Session = Depends(get_db)):
 
         db.commit()
         db.refresh(schedule)
+        
+        token = request.cookies.get("refresh_token")
+        token_bytes = token.encode('utf-8')
+        decoded = jwt_manager.decode_token(token_bytes)
+        email = decoded["email"]
+        log_activity(db, "scheduler", f"User {email} updated schedule with ID {schedule_id}")
 
         return JSONResponse(
             status_code=status.HTTP_200_OK,
@@ -164,6 +182,12 @@ async def delete_schedules(schedule_id: int, request: Request, db: Session = Dep
         
         db.delete(schedule)
         db.commit()
+        
+        token = request.cookies.get("refresh_token")
+        token_bytes = token.encode('utf-8')
+        decoded = jwt_manager.decode_token(token_bytes)
+        email = decoded["email"]
+        log_activity(db, "scheduler", f"User {email} updated schedule with ID {schedule_id}")
     
         return JSONResponse(
             status_code=status.HTTP_200_OK,

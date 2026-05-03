@@ -1,6 +1,5 @@
 from fastapi import APIRouter, Depends, Request, status, HTTPException
 from fastapi.responses import JSONResponse
-from models.scheduler_settings import SchedulerSettings
 
 from sqlalchemy.orm import Session
 from sqlalchemy import select
@@ -137,36 +136,3 @@ async def set_dispenser(index: int,request: Request):
             "detail": message
         }
     )
-    try:
-        
-        data            = await request.json()  
-        id              = data.get("id")
-        is_enabled      = data.get("is_enabled")
-        result = db.execute(select(SchedulerSettings).where(SchedulerSettings.id == id))
-        schedule = result.scalar_one_or_none()
-        
-        if not schedule:
-            return JSONResponse(
-                status_code=status.HTTP_404_NOT_FOUND,
-                content={
-                    "status_code": status.HTTP_404_NOT_FOUND,
-                    "detail": "Schedule not found"
-                }
-            )
-            
-        schedule.is_enabled = is_enabled
-        db.commit()
-        db.refresh(schedule)
-        return JSONResponse(
-            status_code=status.HTTP_200_OK,
-            content={
-                "status_code": status.HTTP_200_OK,
-                "detail": "Schedule updated successfully"
-            }
-        )
-        
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(e)
-        )
