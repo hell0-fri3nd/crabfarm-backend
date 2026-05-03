@@ -187,7 +187,7 @@ async def delete_schedules(schedule_id: int, request: Request, db: Session = Dep
         token_bytes = token.encode('utf-8')
         decoded = jwt_manager.decode_token(token_bytes)
         email = decoded["email"]
-        log_activity(db, "scheduler", f"User {email} updated schedule with ID {schedule_id}")
+        log_activity(db, "scheduler", f"User {email} deleted schedule with ID {schedule_id}")
     
         return JSONResponse(
             status_code=status.HTTP_200_OK,
