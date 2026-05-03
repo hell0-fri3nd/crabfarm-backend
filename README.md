@@ -28,7 +28,7 @@ alembic revision --autogenerate -m "Initial migration"
 ## Apply Migration
 
 ```bash
-alembic upgrade 33e05a5b7d66
+alembic upgrade aefb5bbab48e
 ```
 
 ---
