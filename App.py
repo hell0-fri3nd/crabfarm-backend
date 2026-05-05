@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from routers import Auth, Crabs, Settings, Gateway,Prediction,Control, WebSockets
 from fastapi.middleware.cors import CORSMiddleware
+from routers.activity_logs import Logs
 from services import SchedulerManager
 from contextlib import asynccontextmanager
 from dotenv import load_dotenv
@@ -36,5 +37,6 @@ app.include_router(Settings)
 app.include_router(Gateway)
 app.include_router(Prediction)
 app.include_router(Control)
+app.include_router(Logs)
 
 app.include_router(WebSockets)

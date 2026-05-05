@@ -32,8 +32,8 @@ async def read_root(request: Request, db: Session = Depends(get_db)):
                 "id": log.id,
                 "activity_type": log.activity_type,
                 "description": log.description,
-                "value": log.value,
-                "created_at": log.created_at,
+                "value": float(log.value) if log.value is not None else None,
+                "created_at": log.created_at.isoformat(),
             }
             for log in logs
         ]
