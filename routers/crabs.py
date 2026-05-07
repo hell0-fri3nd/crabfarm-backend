@@ -3,7 +3,7 @@ from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import select, or_
 from database import SessionLocal, engine
-from models import Crab,CrabLogs, Base
+from models import Crab,CrabLogs, Base, ActivityLogs
 from services import JWTManager, CrabPrediction
 
 Crabs = APIRouter(prefix="/api/v1/crabs", tags=["Crab Management"])
@@ -18,6 +18,18 @@ def get_db():
         yield db
     finally:
         db.close()
+        
+def log_activity(db, activity_type, description):
+    
+    log = ActivityLogs(
+        activity_type=activity_type,
+        description=description
+    )
+
+    db.add(log)
+    db.commit()
+    db.refresh(log)
+    return log
 
 @Crabs.get("/")
 @jwt_manager.requires_access
@@ -94,6 +106,12 @@ async def insert_logs(request: Request, db: Session = Depends(get_db)):
         width   = data.get("width")
         weight  = data.get("weight")
         
+        token = request.cookies.get("refresh_token")
+        token_bytes = token.encode('utf-8')
+        
+        decoded = jwt_manager.decode_token(token_bytes)
+        email = decoded['email']
+        log_activity(db, "crab_logs", f"User {email} inserted crab log for crab ID {crab_id}")
         
         new_log = CrabLogs(
             crab_id=crab_id,

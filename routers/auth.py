@@ -4,6 +4,7 @@ from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 from database import SessionLocal, engine
 from models import Users,Base
+from models.activity_logs import ActivityLogs
 from services import JWTManager
 from dotenv import load_dotenv
 from os import getenv
@@ -23,6 +24,17 @@ def get_db():
         
 def str_to_bool(value: str | None) -> bool:
     return value.lower() == "True" if value else False
+
+def log_activity(db, activity_type, description):
+    log = ActivityLogs(
+        activity_type=activity_type,
+        description=description
+    )
+
+    db.add(log)
+    db.commit()
+    db.refresh(log)
+    return log
 
 @Auth.get("/")
 async def read_root():
@@ -99,6 +111,8 @@ async def login(request: Request, response: Response, db: Session = Depends(get_
         samesite="Lax",
         max_age= 60 * 60 * 24 * expiration   # 1 day or 30 days
     )
+    
+    log_activity(db, "auth", f"User {email} logged in")
 
     return {
         "status_code": status.HTTP_200_OK,
@@ -155,7 +169,7 @@ async def pin(request: Request, response: Response, db: Session = Depends(get_db
             samesite="Lax",
             max_age=60 * 15       # 15 minutes
         )
-
+        log_activity(db, "auth", f"User {email} pin login")
         return {
             "status_code": status.HTTP_200_OK,
             "detail":"PIN Accepted",        
@@ -170,9 +184,17 @@ async def pin(request: Request, response: Response, db: Session = Depends(get_db
     
     
 @Auth.post("/logout")
-def logout(response: Response):
+def logout(request: Request, response: Response, db: Session = Depends(get_db)):
+    
+    token = request.cookies.get("refresh_token")
+    token_bytes = token.encode('utf-8')
+    decoded = jwt_manager.decode_token(token_bytes)
+    email = decoded['email']
+    log_activity(db, "auth", f"User {email} logged out")
+
     response.delete_cookie("refresh_token")
     response.delete_cookie("access_token")
+    
     return {
         "status_code": status.HTTP_200_OK,
         "detail": "Successfully logged out",
