@@ -101,26 +101,21 @@ def insert_sensor_log(db, sensor_type, value):
     if value is None:
         return False
     
-    current_hour = datetime.utcnow().replace(
-        minute=0,
-        second=0,
-        microsecond=0
-    )
+    current_hour = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     
     query = select(SensorLogs).where(
         SensorLogs.sensor_type == sensor_type,
         SensorLogs.created_at >= current_hour
     )
-    
     existing = db.execute(query).scalars().first()
+    
     if existing:
         return False
     
     new_log = SensorLogs(
         sensor_type=sensor_type,
         status=get_status(sensor_type, value),
-        value=value,
-        created_at=datetime.utcnow()
+        value=value
     )
 
     db.add(new_log)
