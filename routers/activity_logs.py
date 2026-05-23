@@ -3,7 +3,7 @@ from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import select, or_
 from database import SessionLocal, engine
-from models import Crab,CrabLogs, Base, ActivityLogs
+from models import Base, ActivityLogs, SensorLogs
 from services import JWTManager, CrabPrediction
 
 Logs = APIRouter(prefix="/api/v1/logs", tags=["Activity Logs"])
@@ -83,3 +83,39 @@ async def insert_logs(request: Request, db: Session = Depends(get_db)):
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=str(e)
     )
+        
+        
+@Logs.get("/sensor")
+@jwt_manager.requires_access
+async def read_Sensor_logs(request: Request, db: Session = Depends(get_db)):
+    
+    try:
+        result = db.execute(select(SensorLogs))
+        sensorLogs = result.scalars().all()
+        
+        data = [
+            {
+                "id": log.id,
+                "sensor_type": log.sensor_type,
+                "status": log.status,
+                "value": float(log.value) if log.value is not None else None,
+                "created_at": log.created_at.isoformat(),
+            }
+            for log in sensorLogs
+        ]
+                
+        return JSONResponse(
+                status_code=status.HTTP_200_OK,
+                content={
+                    "status_code": status.HTTP_200_OK,
+                    "detail": "Success",
+                    "data": data
+                }
+            )   
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e)
+        )
+     

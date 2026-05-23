@@ -4,6 +4,7 @@ from .scheduler_settings import SchedulerSettings
 from .crab import Crab
 from .crab_logs import CrabLogs
 from .activity_logs import ActivityLogs
+from .sensor_logs import SensorLogs
 from sqlalchemy.orm import DeclarativeBase
 
 class Base(DeclarativeBase):
