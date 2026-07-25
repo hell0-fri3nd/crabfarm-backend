@@ -1,6 +1,5 @@
 import pandas as pd
 import numpy as np
-from scipy.stats import zscore
 from sklearn.linear_model import LinearRegression
 
 SENSOR_THRESHOLDS = {
@@ -48,14 +47,23 @@ SENSOR_THRESHOLDS = {
         ]
     },
 
-    "ammonium": {
+    "turbidity": {
         "warning": [
-            [0.1, 0.4],
-            [3.1, 3.5]
+            [10, 20],
+            [40, 50]
         ],
         "danger": [
-            [float("-inf"), 0.1],
-            [3.5, float("inf")]
+            [float("-inf"), 10],
+            [50, float("inf")]
+        ]
+    },
+
+    "ammonium": {
+        "warning": [
+            [1.0, 3.0]
+        ],
+        "danger": [
+            [3.0, float("inf")]
         ]
     }
 }
@@ -130,7 +138,8 @@ class SensorAnalyzer:
         counts = {
             "normal": 0,
             "warning": 0,
-            "danger": 0
+            "danger": 0,
+            "unknown": 0
         }
 
         first_warning = None
@@ -152,12 +161,25 @@ class SensorAnalyzer:
                 first_warning = first_warning or t
                 last_warning = t
 
+            elif status == "UNKNOWN":
+                counts["unknown"] += 1
+
             else:
                 counts["normal"] += 1
 
+        total = len(df)
+        def pct(n):
+            return round(n / total * 100, 1) if total else 0.0
+
         return {
-            "total": len(df),
+            "total": total,
             "counts": counts,
+            "percentages": {
+                "normal": pct(counts["normal"]),
+                "warning": pct(counts["warning"]),
+                "danger": pct(counts["danger"]),
+                "unknown": pct(counts["unknown"])
+            },
             "first_warning": str(first_warning) if first_warning else None,
             "last_warning": str(last_warning) if last_warning else None,
             "first_danger": str(first_danger) if first_danger else None,
@@ -200,10 +222,11 @@ class SensorAnalyzer:
 
         system = {
             "time_window": f"{start} to {end}",
+            "thresholds": self.thresholds,
             "sensors": {}
         }
 
-        risk_score = 0
+        sensor_risks = {}
 
         for sensor in sensors:
 
@@ -211,13 +234,20 @@ class SensorAnalyzer:
 
             system["sensors"][sensor] = report
 
-            # simple risk scoring
-            danger = report["anomaly"]["counts"]["danger"] if report["anomaly"] else 0
-            warning = report["anomaly"]["counts"]["warning"] if report["anomaly"] else 0
+            anomaly = report["anomaly"]
+            if anomaly and anomaly["total"] > 0:
+                danger_pct = anomaly["percentages"]["danger"]
+                warning_pct = anomaly["percentages"]["warning"]
+                sensor_risk = round((danger_pct * 1.0 + warning_pct * 0.3) / 100, 4)
+            else:
+                sensor_risk = 0.0
 
-            risk_score += danger * 2 + warning * 0.5
+            sensor_risks[sensor] = sensor_risk
 
-        system["overall_risk_score"] = round(min(risk_score / 100, 1.0), 2)
+        system["sensor_risk_scores"] = sensor_risks
+
+        overall = sum(sensor_risks.values()) / len(sensors) if sensors else 0.0
+        system["overall_risk_score"] = round(overall, 2)
 
         if system["overall_risk_score"] > 0.7:
             system["system_health"] = "CRITICAL"
@@ -227,97 +257,3 @@ class SensorAnalyzer:
             system["system_health"] = "STABLE"
 
         return system
-
-
-    
-# from sqlalchemy import select
-# from sqlalchemy.orm import Session
-# import pandas as pd
-# import json
-# from models import SensorLogs
-# from database import engine
-# from datetime import datetime
-
-# with Session(engine) as session:
-
-#     query = select(SensorLogs).where(
-#         SensorLogs.created_at >= datetime(2026, 5, 23, 18, 42, 36)
-#     )
-
-#     results = session.execute(query).scalars().all()
-
-#     data = [
-#         {
-#             "id": row.id,
-#             "sensor_type": row.sensor_type,
-#             "status": row.status,
-#             "value": row.value,
-#             "created_at": row.created_at
-#         }
-#         for row in results
-#     ]
-
-# df = pd.DataFrame(data)
-
-
-# SENSOR_THRESHOLDS = {
-#     "do": {
-#         "warning": [
-#             [4.5, 4.9],
-#             [12.1, 12.5]
-#         ],
-#         "danger": [
-#             [0, 4.5],
-#             [12.5, float("inf")]
-#         ]
-#     },
-
-#     "temperature": {
-#         "warning": [
-#             [24.1, 24.5],
-#             [35.1, 35.5]
-#         ],
-#         "danger": [
-#             [float("-inf"), 24.1],
-#             [35.5, float("inf")]
-#         ]
-#     },
-
-#     "ph": {
-#         "warning": [
-#             [7.1, 7.4],
-#             [9.1, 9.5]
-#         ],
-#         "danger": [
-#             [float("-inf"), 7.1],
-#             [9.5, float("inf")]
-#         ]
-#     },
-
-#     "tds": {
-#         "warning": [
-#             [14.5, 14.9],
-#             [20.1, 20.5]
-#         ],
-#         "danger": [
-#             [float("-inf"), 14.5],
-#             [20.5, float("inf")]
-#         ]
-#     },
-
-#     "ammonium": {
-#         "warning": [
-#             [0.1, 0.4],
-#             [3.1, 3.5]
-#         ],
-#         "danger": [
-#             [float("-inf"), 0.1],
-#             [3.5, float("inf")]
-#         ]
-#     }
-# }
-
-# analyzer = SensorAnalyzer(df)
-
-# report = analyzer.analyze_system("2026-05-18 23:00:00", "2026-05-23 21:08:53")
-# print(report)
