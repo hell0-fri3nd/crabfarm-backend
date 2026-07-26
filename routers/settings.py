@@ -19,10 +19,11 @@ def get_db():
     finally:
         db.close()
         
-def log_activity(db, activity_type, description):
+def log_activity(db, activity_type, description, user_id=None):
     log = ActivityLogs(
         activity_type=activity_type,
-        description=description
+        description=description,
+        user_id=user_id
     )
     db.add(log)
     db.commit()
@@ -77,11 +78,11 @@ async def post_schedules(request: Request, db: Session = Depends(get_db)):
         is_enabled = data.get("is_enabled")
         scheduler_type = data.get("scheduler_type")
         
-        token = request.cookies.get("refresh_token")
+        token = request.cookies.get("access_token")
         token_bytes = token.encode('utf-8')
         decoded = jwt_manager.decode_token(token_bytes)
-        created_by = decoded["name"]
         email = decoded["email"]
+        user_id = decoded["user_id"]
         
         new_schedule = SchedulerSettings(
             type=type,
@@ -89,13 +90,13 @@ async def post_schedules(request: Request, db: Session = Depends(get_db)):
             seconds=seconds,
             is_enabled=is_enabled,
             scheduler_type=scheduler_type,
-            created_by=created_by
+            user_id=user_id
         )
         db.add(new_schedule)
         db.commit()
         db.refresh(new_schedule)
         
-        log_activity(db, "scheduler", f"User {email} created a new schedule with schedule id {new_schedule.id}")
+        log_activity(db, "scheduler", f"User {email} created a new schedule with schedule id {new_schedule.id}", user_id)
         return JSONResponse(
             status_code=status.HTTP_201_CREATED,
             content={
@@ -145,11 +146,12 @@ async def put_schedules(request: Request, db: Session = Depends(get_db)):
         db.commit()
         db.refresh(schedule)
         
-        token = request.cookies.get("refresh_token")
+        token = request.cookies.get("access_token")
         token_bytes = token.encode('utf-8')
         decoded = jwt_manager.decode_token(token_bytes)
         email = decoded["email"]
-        log_activity(db, "scheduler", f"User {email} updated schedule with ID {schedule_id}")
+        user_id = decoded("user_id")
+        log_activity(db, "scheduler", f"User {email} updated schedule with ID {schedule_id}", user_id)
 
         return JSONResponse(
             status_code=status.HTTP_200_OK,
@@ -183,11 +185,12 @@ async def delete_schedules(schedule_id: int, request: Request, db: Session = Dep
         db.delete(schedule)
         db.commit()
         
-        token = request.cookies.get("refresh_token")
+        token = request.cookies.get("access_token")
         token_bytes = token.encode('utf-8')
         decoded = jwt_manager.decode_token(token_bytes)
         email = decoded["email"]
-        log_activity(db, "scheduler", f"User {email} deleted schedule with ID {schedule_id}")
+        user_id = decoded["user_id"]
+        log_activity(db, "scheduler", f"User {email} deleted schedule with ID {schedule_id}", user_id)
     
         return JSONResponse(
             status_code=status.HTTP_200_OK,
