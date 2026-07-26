@@ -85,6 +85,7 @@ async def login(request: Request, response: Response, db: Session = Depends(get_
         )
     
     payload = {
+        "id": user.id,
         "name": user.name,
         "email": user.email,
         "role": user.roles
@@ -154,6 +155,7 @@ async def pin(request: Request, response: Response, db: Session = Depends(get_db
             )
         
         payload = {
+            "id": decoded["id"],
             "name": decoded["name"],
             "email": email,
             "role": decoded["role"]
