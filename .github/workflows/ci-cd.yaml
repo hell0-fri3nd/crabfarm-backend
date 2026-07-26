@@ -1,0 +1,73 @@
+name: CI/CD
+
+on:
+  push:
+    branches: [development]
+  pull_request:
+    branches: [development]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run tests
+        run: pytest -v
+
+  docker:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build and start services
+        run: docker compose up --build -d
+
+      - name: Wait for services to be healthy
+        run: |
+          echo "Waiting for services..."
+          sleep 15
+          docker compose ps
+
+      - name: Tear down
+        run: docker compose down -v
+
+  merge-to-main:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/development'
+    needs: [test, docker]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+
+      - name: Merge development into main
+        run: |
+          git checkout main
+          git merge development --no-ff -m "chore: merge development into main [skip ci]"
+          git push origin main

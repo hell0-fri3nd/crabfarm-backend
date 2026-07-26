@@ -1,5 +1,5 @@
 from fastapi import FastAPI
-from routers import Auth, Crabs, Settings, Gateway,Prediction,Control, WebSockets
+from routers import Auth, Crabs, Settings, Gateway, Prediction, Control, WebSockets, ChatAI
 from fastapi.middleware.cors import CORSMiddleware
 from routers.activity_logs import Logs
 from services import SchedulerManager
@@ -40,3 +40,5 @@ app.include_router(Control)
 app.include_router(Logs)
 
 app.include_router(WebSockets)
+
+app.include_router(ChatAI)

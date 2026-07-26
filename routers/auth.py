@@ -85,9 +85,10 @@ async def login(request: Request, response: Response, db: Session = Depends(get_
         )
     
     payload = {
+        "id": user.id,
         "name": user.name,
         "email": user.email,
-        "role": user.roles
+        "role": user.role
     }
 
     expiration = 30 if remember_me else 1
@@ -154,6 +155,7 @@ async def pin(request: Request, response: Response, db: Session = Depends(get_db
             )
         
         payload = {
+            "id": decoded["id"],
             "name": decoded["name"],
             "email": email,
             "role": decoded["role"]
@@ -176,6 +178,8 @@ async def pin(request: Request, response: Response, db: Session = Depends(get_db
             "data": payload
         },
 
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, 

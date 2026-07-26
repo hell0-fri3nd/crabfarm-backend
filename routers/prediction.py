@@ -2,8 +2,9 @@ from fastapi import APIRouter, Depends,status, HTTPException, Request
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import insert, select
+from datetime import datetime
 from database import SessionLocal, engine
-from models import CrabLogs,ActivityLogs, Base
+from models import CrabLogs, ActivityLogs, Base
 from services import JWTManager, CrabPrediction
 
 Prediction = APIRouter(prefix="/api/v1/predictions", tags=["Crab Prediction"])
@@ -18,10 +19,11 @@ def get_db():
     finally:
         db.close()
         
-def log_activity(db, activity_type, description):
+def log_activity(db, activity_type, description, user_id=None):
     log = ActivityLogs(
         activity_type=activity_type,
-        description=description
+        description=description,
+        user_id=user_id
     )
     db.add(log)
     db.commit()
@@ -61,7 +63,7 @@ async def prediction(crab_id: str,request: Request, db: Session = Depends(get_db
         results = [
             {
                 "crab_id": crab_id,
-                "created_at": created_at,
+                "created_at": created_at.strftime('%Y-%m-%d %H:%M:%S') if isinstance(created_at, datetime) else created_at,
                 "width": float(width),
                 "weight": float(weight)
             }
@@ -75,6 +77,8 @@ async def prediction(crab_id: str,request: Request, db: Session = Depends(get_db
                 "data": results
             }
         )
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -87,11 +91,21 @@ async def insert_prediction(crab_id: str,request: Request, db: Session = Depends
     
     try:
         
+        token = request.cookies.get("access_token")
+        token_bytes = token.encode('utf-8')
+        decoded = jwt_manager.decode_token(token_bytes)
+        email = decoded["email"]
+        user_id = decoded["id"]
+        
+        data    = await request.json()  
+        batch_id = data.get("batch_id")
+        
         result = db.execute(
             select(CrabLogs)
             .where(
                 CrabLogs.crab_id == crab_id,
-                CrabLogs.type == "actual"
+                CrabLogs.type == "actual",
+                CrabLogs.batch_id == batch_id
             )
             .order_by(CrabLogs.created_at.desc())
             .limit(7)
@@ -116,7 +130,9 @@ async def insert_prediction(crab_id: str,request: Request, db: Session = Depends
                 "created_at": created_at,
                 "width": float(width),
                 "weight": float(weight),
-                "type": "prediction"
+                "type": "prediction",
+                "user_id": user_id,
+                "batch_id": batch_id
             }
             for  created_at, width, weight in crab_prediction.predict_next_days(data_list=data)
         ]
@@ -146,12 +162,7 @@ async def insert_prediction(crab_id: str,request: Request, db: Session = Depends
         db.execute(stmt)
         db.commit()
         
-        
-        token = request.cookies.get("refresh_token")
-        token_bytes = token.encode('utf-8')
-        decoded = jwt_manager.decode_token(token_bytes)
-        email = decoded["email"]
-        log_activity(db, "crab_logs", f"User {email} inserted prediction for crab ID {crab_id}")
+        log_activity(db, "crab_logs", f"User {email} inserted prediction for crab ID {crab_id}", user_id)
 
         return JSONResponse(
             status_code=status.HTTP_201_CREATED,
@@ -161,6 +172,8 @@ async def insert_prediction(crab_id: str,request: Request, db: Session = Depends
             }
         )
         
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
