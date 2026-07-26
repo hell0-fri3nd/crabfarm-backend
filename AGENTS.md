@@ -7,10 +7,17 @@ when you code you prefer readability, simplified and readability, you apply appr
 
 also follow the prompt engineering standard, priority token efficiency, adn readability of a prompt
 
----
+----
 ## CONVENTIONAL COMMIT
 please read apply based on COMMIT.md instruction
 
+----
+Everytime theres changes in: 
+
+- Folder Structure: eg. New Folder or new instruction
+- models/* : eg. remove tables or adding new tables
+
+update the instruction in `README.md`
 ----
 
 you understand how code works, and add a code that how i built like a engineer not ai viber coder or assitant.
