@@ -11,7 +11,7 @@ class ChatMessage(Base):
     __tablename__ = "chat_messages"
 
     id         = Column(String(36), primary_key=True, default=generate_uuid)
-    session_id = Column(String(36), ForeignKey("chat_sessions.id"), nullable=False, index=True)
+    session_id = Column(String(36), ForeignKey("chat_sessions.id"), nullable=False)
     role       = Column(Enum("user", "assistant", name="chat_role_enum"), nullable=False)
     content    = Column(Text, nullable=False)
     created_at = Column(DateTime, nullable=False, server_default=func.now())
