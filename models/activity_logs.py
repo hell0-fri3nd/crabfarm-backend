@@ -20,7 +20,7 @@ class ActivityLogs(Base):
     description   = Column(String(100))
     value         = Column(Numeric(10, 2))
     created_at    = Column(TIMESTAMP, nullable=False, server_default=func.now())
-    user_id       = Column(Integer, nullable=False, index=True)
+    user_id       = Column(Integer, nullable=True, index=True)
 
     __table_args__ = (
         Index("idx_activity_logs_id", "id"),
