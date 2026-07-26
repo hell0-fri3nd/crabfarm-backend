@@ -58,6 +58,8 @@ async def read_root(request: Request, db: Session = Depends(get_db)):
                 }
             )   
 
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -89,6 +91,8 @@ async def get_batches(request: Request, db: Session = Depends(get_db)):
             },
         )
 
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -160,6 +164,8 @@ async def read_crabs_by_group(crab_group: str, request: Request, db: Session = D
                 }
             )   
 
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -202,6 +208,8 @@ async def insert_logs(request: Request, db: Session = Depends(get_db)):
                 "detail": "Crab log inserted successfully"
             }
         )
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -241,8 +249,8 @@ async def view_all_logs(log_type: str, request: Request, page: int = 1, limit: i
                 "created_at": log.created_at.isoformat(),
                 "crab_name": crab.name,
                 "group_by": crab.group_by,
-                "batch_id": crab.batch_id,
-                "batch_description": f"BATCH-{crab.batch_id}" if crab.batch_id else None
+                "batch_id": log.batch_id,
+                "batch_description": f"BATCH-{log.batch_id}" if log.batch_id else None
             }
             for log, crab in crab_logs
         ]
@@ -256,6 +264,8 @@ async def view_all_logs(log_type: str, request: Request, page: int = 1, limit: i
             }
         )
                 
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -298,8 +308,8 @@ async def view_logs(log_type: str, crab_id: int, request: Request, db: Session =
                 "created_at": log.created_at.isoformat(),
                 "crab_name": crab.name,
                 "group_by": crab.group_by,
-                "batch_id": crab.batch_id,
-                "batch_description": f"BATCH-{crab.batch_id}" if crab.batch_id else None
+                "batch_id": log.batch_id,
+                "batch_description": f"BATCH-{log.batch_id}" if log.batch_id else None
             }
             for log, crab in crab_logs
         ]
@@ -313,6 +323,8 @@ async def view_logs(log_type: str, crab_id: int, request: Request, db: Session =
             }
         )
                 
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
