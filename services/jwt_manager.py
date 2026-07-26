@@ -1,6 +1,6 @@
 from jwt import ExpiredSignatureError, InvalidTokenError
 import jwt
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from dotenv import load_dotenv
 from os import getenv
 from fastapi import Request, HTTPException, status
@@ -14,7 +14,7 @@ class JWTManager:
 
     def create_access_token(self, data: dict, expire_minutes = 15) -> str:
         to_encode = data.copy()
-        expire = datetime.utcnow() + timedelta(minutes=expire_minutes)
+        expire = datetime.now(timezone.utc) + timedelta(minutes=expire_minutes)
         to_encode.update({"exp": expire})
         token = jwt.encode(to_encode, self.__secret_key, algorithm=self.__algorithm)
         return token
@@ -29,7 +29,7 @@ class JWTManager:
 
     def create_refresh_token(self, data: dict, days = 1) -> str:
         to_encode = data.copy()
-        expire = datetime.utcnow() + timedelta(days=days)
+        expire = datetime.now(timezone.utc) + timedelta(days=days)
         to_encode.update({"exp": expire})
         token = jwt.encode(to_encode, self.__secret_key, algorithm=self.__algorithm)
         return token

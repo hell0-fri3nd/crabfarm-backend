@@ -2,7 +2,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import desc, func
 from models import ChatSession, ChatMessage
 from services.agents import AiAssistant
-from datetime import datetime
+from datetime import datetime, timezone
 
 def _ownership_filter(query, user_id: int | None):
     return query.filter(ChatSession.user_id == user_id)
@@ -74,7 +74,7 @@ class ChatManager:
         db.commit()
         db.refresh(assistant_msg)
 
-        session.updated_at = datetime.utcnow()
+        session.updated_at = datetime.now(timezone.utc)
         db.commit()
 
         return {
@@ -96,7 +96,7 @@ class ChatManager:
         if not session:
             return False
         session.status = "ended"
-        session.updated_at = datetime.utcnow()
+        session.updated_at = datetime.now(timezone.utc)
         db.commit()
         return True
 
