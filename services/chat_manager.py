@@ -41,7 +41,7 @@ class ChatManager:
 
     def send_message(
         self, db: Session, session_id: str, user_id: int | None = None,
-        content: str = None, client_message_id: str = None
+        content: str | None = None
     ) -> dict | None:
         session = self.get_session(db, session_id, user_id)
         if not session:
@@ -49,36 +49,10 @@ class ChatManager:
         if session.status == "ended":
             return {"error": "session_ended"}
 
-        if client_message_id:
-            existing = db.query(ChatMessage).filter(
-                ChatMessage.client_message_id == client_message_id
-            ).first()
-            if existing:
-                assistant = db.query(ChatMessage).filter(
-                    ChatMessage.session_id == session_id,
-                    ChatMessage.created_at > existing.created_at,
-                    ChatMessage.role == "assistant"
-                ).order_by(ChatMessage.created_at).first()
-
-                return {
-                    "message": "duplicate",
-                    "user_message": {
-                        "id": existing.id,
-                        "content": existing.content,
-                        "created_at": existing.created_at.isoformat(),
-                    },
-                    "assistant_message": {
-                        "id": assistant.id,
-                        "content": assistant.content,
-                        "created_at": assistant.created_at.isoformat(),
-                    } if assistant else None
-                }
-
         user_msg = ChatMessage(
             session_id=session_id,
             role="user",
-            content=content,
-            client_message_id=client_message_id
+            content=content
         )
         db.add(user_msg)
         db.commit()

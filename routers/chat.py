@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, status, HTTPException, Request, Query
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 from database import SessionLocal, engine
-from models import Base, Users
+from models import Base, ActivityLogs
 from services.chat_manager import ChatManager
 from services.jwt_manager import JWTManager
 import jwt
@@ -26,27 +26,35 @@ def get_db():
         db.close()
 
 
-def resolve_identity(request: Request, db: Session) -> int | None:
+def resolve_identity(request: Request) -> int | None:
     token = request.cookies.get("access_token")
     if token:
         try:
             payload = jwt_manager.decode_token(token)
-            email = payload.get("email")
-            if email:
-                user = db.query(Users).filter(Users.email == email).first()
-                if user:
-                    return user.id
+            return payload.get("id")
         except (jwt.ExpiredSignatureError, jwt.InvalidTokenError, Exception):
             pass
 
     return None
 
+def log_activity(db, activity_type, description, request, user_id=None):
+    log = ActivityLogs(
+        activity_type=activity_type,
+        description=description,
+        user_id=user_id
+    )
+    db.add(log)
+    db.commit()
+    db.refresh(log)
+    return log
+
 @ChatAI.post("/sessions")
 @jwt_manager.requires_access
 async def create_session(request: Request, db: Session = Depends(get_db)):
     try:
-        user_id = resolve_identity(request, db)
+        user_id = resolve_identity(request)
         session = chat_manager.create_session(db, user_id)
+        log_activity(db, "scheduler", f"User {user_id} created chat session {session.id}", request, user_id)
         return JSONResponse(
             status_code=status.HTTP_201_CREATED,
             content={
@@ -83,7 +91,7 @@ async def get_session(
     db: Session = Depends(get_db)
 ):
     try:
-        user_id = resolve_identity(request, db)
+        user_id = resolve_identity(request)
         session = chat_manager.get_session(db, session_id, user_id)
         if not session:
             return JSONResponse(
@@ -149,9 +157,8 @@ async def send_message(
         
         body = await request.json()
         content = body.get("content")
-        client_message_id = body.get("client_message_id")
         
-        user_id = resolve_identity(request, db)
+        user_id = resolve_identity(request)
         
         if not content:
             return JSONResponse(
@@ -164,7 +171,7 @@ async def send_message(
             )
 
         result = chat_manager.send_message(
-            db, session_id, user_id, content, client_message_id
+            db, session_id, user_id, content
         )
 
         if result is None:
@@ -213,15 +220,16 @@ async def send_message(
             content={
                 "status_code": status.HTTP_500_INTERNAL_SERVER_ERROR,
                 "detail": "Failed to send message",
-                "data": e.__dict__
+                "data": {}
             }
         )
 
 
 @ChatAI.patch("/sessions/{session_id}/end")
+@jwt_manager.requires_access
 async def end_session(request: Request, session_id: str, db: Session = Depends(get_db)):
     try:
-        user_id = resolve_identity(request, db)
+        user_id = resolve_identity(request)
         success = chat_manager.end_session(db, session_id, user_id)
         if not success:
             return JSONResponse(
@@ -241,31 +249,23 @@ async def end_session(request: Request, session_id: str, db: Session = Depends(g
         )
     except HTTPException:
         raise
-    except json.JSONDecodeError:
-        return JSONResponse(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            content={
-                "status_code": status.HTTP_400_BAD_REQUEST,
-                "detail": "Invalid JSON body",
-                "data": {}
-            }
-        )
     except Exception as e:
-        logger.exception("Failed to send message")
+        logger.exception("Failed to end session")
         return JSONResponse(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             content={
                 "status_code": status.HTTP_500_INTERNAL_SERVER_ERROR,
-                "detail": "Failed to send message",
+                "detail": "Failed to end session",
                 "data": {}
             }
         )
 
 
 @ChatAI.delete("/sessions/{session_id}")
+@jwt_manager.requires_access
 async def delete_session(request: Request, session_id: str, db: Session = Depends(get_db)):
     try:
-        user_id = resolve_identity(request, db)
+        user_id = resolve_identity(request)
         success = chat_manager.delete_session(db, session_id, user_id)
         if not success:
             return JSONResponse(
@@ -276,6 +276,7 @@ async def delete_session(request: Request, session_id: str, db: Session = Depend
                     "data": {}
                 }
             )
+        log_activity(db, "scheduler", f"User {user_id} deleted chat session {session_id}", request, user_id)
         return JSONResponse(
             status_code=status.HTTP_200_OK,
             content={
