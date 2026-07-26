@@ -5,11 +5,73 @@ This service provides API endpoints for managing crab farm data and integrates w
 
 ---
 
-## Requirements
+## Table of Contents
+
+- [Running with Docker](#running-with-docker)
+- [Local Development Setup](#local-development-setup)
+- [Database Migration (Alembic)](#database-migration-alembic)
+  - [Create a Migration](#create-a-migration)
+  - [Apply Migration](#apply-migration)
+- [Running the Application](#running-the-application)
+  - [Server Parameters](#server-parameters)
+- [API Documentation](#api-documentation)
+  - [Swagger UI](#swagger-ui)
+  - [ReDoc](#redoc)
+- [Tech Stack](#tech-stack)
+- [Project Structure](#project-structure)
+- [Database Design](#database-design)
+  - [Entity Relationship](#entity-relationship)
+  - [Tables](#tables)
+  - [Migration Chain](#migration-chain)
+- [Development Notes](#development-notes)
+- [License](#license)
+
+---
+
+## Running with Docker
+
+Build and run both the backend and MySQL database using Docker Compose:
+
+```bash
+docker compose up --build
+# or with Podman:
+podman compose up --build
+```
+
+This starts:
+- **MySQL 8.0** on port `3306`
+- **CrabFarm backend** on port `4572`
+
+> Note: The backend container depends on MySQL. Ensure MySQL is ready before hitting the API.
+
+---
+
+## Local Development Setup
+
+### 1. Clone & Enter the Project
+
+```bash
+git clone <repo-url>
+cd crabfarm-backend
+```
+
+### 2. Create a Virtual Environment (Recommended)
+
+```bash
+python -m venv venv
+source venv/bin/activate    # Linux/macOS
+venv\Scripts\activate       # Windows
+```
+
+### 3. Install Dependencies
 
 ```bash
 pip install -r requirements.txt
 ```
+
+### 4. Configure Environment
+
+Copy `.env.example` to `.env` and fill in your config (or use the existing `.env`).
 
 ---
 
