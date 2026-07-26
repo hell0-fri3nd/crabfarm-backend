@@ -59,6 +59,8 @@ async def read_schedules(request: Request, db: Session = Depends(get_db)):
                 }
             )   
 
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -82,7 +84,7 @@ async def post_schedules(request: Request, db: Session = Depends(get_db)):
         token_bytes = token.encode('utf-8')
         decoded = jwt_manager.decode_token(token_bytes)
         email = decoded["email"]
-        user_id = decoded["user_id"]
+        user_id = decoded["id"]
         
         new_schedule = SchedulerSettings(
             type=type,
@@ -105,6 +107,8 @@ async def post_schedules(request: Request, db: Session = Depends(get_db)):
             }
         )   
 
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -122,7 +126,7 @@ async def put_schedules(request: Request, db: Session = Depends(get_db)):
         
         if not schedule_id:
             raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                 detail="Schedule ID is required for update"
             )
         
@@ -150,7 +154,7 @@ async def put_schedules(request: Request, db: Session = Depends(get_db)):
         token_bytes = token.encode('utf-8')
         decoded = jwt_manager.decode_token(token_bytes)
         email = decoded["email"]
-        user_id = decoded("user_id")
+        user_id = decoded["id"]
         log_activity(db, "scheduler", f"User {email} updated schedule with ID {schedule_id}", user_id)
 
         return JSONResponse(
@@ -161,6 +165,8 @@ async def put_schedules(request: Request, db: Session = Depends(get_db)):
             }
         )   
 
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -189,7 +195,7 @@ async def delete_schedules(schedule_id: int, request: Request, db: Session = Dep
         token_bytes = token.encode('utf-8')
         decoded = jwt_manager.decode_token(token_bytes)
         email = decoded["email"]
-        user_id = decoded["user_id"]
+        user_id = decoded["id"]
         log_activity(db, "scheduler", f"User {email} deleted schedule with ID {schedule_id}", user_id)
     
         return JSONResponse(
@@ -200,6 +206,8 @@ async def delete_schedules(schedule_id: int, request: Request, db: Session = Dep
             }
         )   
 
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
