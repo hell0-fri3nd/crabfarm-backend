@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends,status, HTTPException, Request
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import insert, select
+from datetime import datetime
 from database import SessionLocal, engine
 from models import CrabLogs, ActivityLogs, Base
 from services import JWTManager, CrabPrediction
@@ -62,7 +63,7 @@ async def prediction(crab_id: str,request: Request, db: Session = Depends(get_db
         results = [
             {
                 "crab_id": crab_id,
-                "created_at": created_at,
+                "created_at": created_at.strftime('%Y-%m-%d %H:%M:%S') if isinstance(created_at, datetime) else created_at,
                 "width": float(width),
                 "weight": float(weight)
             }
@@ -76,6 +77,8 @@ async def prediction(crab_id: str,request: Request, db: Session = Depends(get_db
                 "data": results
             }
         )
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -169,6 +172,8 @@ async def insert_prediction(crab_id: str,request: Request, db: Session = Depends
             }
         )
         
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
