@@ -71,7 +71,7 @@ pip install -r requirements.txt
 
 ### 4. Configure Environment
 
-Copy `.env.example` to `.env` and fill in your config (or use the existing `.env`).
+Use the existing `.env` file and update values as needed.
 
 ---
 
@@ -159,9 +159,9 @@ crabfarm-backend
 │   ├── users.py                    # User accounts
 │   ├── crab.py                     # Crab definitions
 │   ├── crab_logs.py                # Crab growth measurements
+│   ├── batch_crab.py               # Batch crab tracking
 │   ├── sensor_logs.py              # Water quality sensor readings
 │   ├── activity_logs.py            # System activity audit trail
-│   ├── calibration_settings.py     # Sensor calibration config
 │   ├── scheduler_settings.py       # Feeding/valve schedules
 │   ├── chat_sessions.py            # AI chat session
 │   └── chat_messages.py            # AI chat messages
@@ -205,22 +205,35 @@ crabfarm-backend
 │   ├── script.py.mako
 │   ├── README
 │   └── versions/
-│       ├── fb3179d6205f_migration_table.py        # Initial schema
-│       ├── 33e05a5b7d66_migration_seeder.py       # Seed data
-│       ├── aefb5bbab48e_activity_logs_tables.py   # Activity logs
-│       ├── 24e806715c23_your_new_tables.py        # Additional seed
-│       ├── c1c5697e9d49_sensor_logs.py            # Sensor logs
-│       └── 42e606fb8efe_chats_tables.py           # Chat tables
+│       ├── fb3179d6205f_migration_table.py                        # Initial schema
+│       ├── 33e05a5b7d66_migration_seeder.py                       # Seed data
+│       ├── 24e806715c23_your_new_tables.py                        # Additional seed
+│       ├── aefb5bbab48e_activity_logs_tables.py                   # Activity logs
+│       ├── c1c5697e9d49_sensor_logs.py                            # Sensor logs
+│       ├── 42e606fb8efe_chats_tables.py                           # Chat tables
+│       ├── 3b6a664a5903_update_schema.py                          # Schema update
+│       └── ee46f37f7890_make_activity_logs_user_id_nullable.py    # Make user_id nullable
 │
 ├── docs/
-│   └── diagram/
-│       └── database-design.png     # ER diagram
+│   ├── diagram/
+│   │   └── database-design.png     # ER diagram
+│   └── erd/
+│       └── ERD.md                  # Entity relationship docs
 │
-├── .agents/                        # AI agent configurations
-├── .vscode/                        # VS Code workspace settings
+├── tests/                          # Test suite
+│   ├── __init__.py
+│   ├── conftest.py
+│   ├── test_activity_logs.py
+│   ├── test_auth.py
+│   ├── test_chat.py
+│   ├── test_crabs.py
+│   ├── test_prediction.py
+│   └── test_settings.py
+│
 ├── compose.yaml                    # Docker Compose (app + MySQL)
 ├── compose.debug.yaml              # Docker Compose debug
 ├── Dockerfile                      # Container build
+├── pyproject.toml                  # Python project config
 ├── requirements.txt                # Python dependencies
 ├── alembic.ini                     # Alembic configuration
 ├── AGENTS.md                       # AI coding agent instructions
@@ -245,7 +258,12 @@ users 1---* chat_sessions 1---* chat_messages
   |
   | (FK nullable)
 
-crab 1---* crab_logs
+crab 1---* crab_logs *---1 batch_crab
+crab_logs *---1 users
+
+users 1---* activity_logs
+users 1---* batch_crab
+users 1---* scheduler_settings
 ```
 
 ### Tables
@@ -254,29 +272,31 @@ crab 1---* crab_logs
 | Column | Type | Constraints |
 |--------|------|-------------|
 | `id` | INTEGER | PK, auto-increment |
-| `name` | VARCHAR(255) | NOT NULL |
-| `email` | VARCHAR(255) | UNIQUE, NOT NULL |
-| `password` | VARCHAR(255) | NOT NULL |
-| `pin` | VARCHAR(100) | NOT NULL |
-| `roles` | VARCHAR(255) | NOT NULL |
-| `created_at` | DATETIME | server_default = now() |
-| `updated_at` | DATETIME | onupdate = now() |
+| `name` | VARCHAR(150) | NOT NULL |
+| `email` | VARCHAR(254) | UNIQUE, NOT NULL |
+| `password` | VARCHAR(60) | NOT NULL |
+| `pin` | VARCHAR(60) | NOT NULL |
+| `role` | VARCHAR(6) | NOT NULL |
+| `created_at` | TIMESTAMP | server_default = now() |
+| `updated_at` | TIMESTAMP | onupdate = now() |
 
 #### `crab`
 | Column | Type | Constraints |
 |--------|------|-------------|
 | `id` | INTEGER | PK, auto-increment |
 | `name` | VARCHAR(50) | UNIQUE, NOT NULL |
-| `group_by` | VARCHAR(50) | NOT NULL |
+| `group_by` | VARCHAR(10) | NOT NULL |
 
 #### `crab_logs`
 | Column | Type | Constraints |
 |--------|------|-------------|
 | `id` | INTEGER | PK, auto-increment |
+| `batch_id` | INTEGER | FK to `batch_crab.id` |
 | `crab_id` | INTEGER | FK to `crab.id` |
+| `user_id` | INTEGER | FK to `users.id` |
 | `type` | ENUM(prediction, actual) | NOT NULL |
-| `width` | NUMERIC(10,2) | default = 0 |
-| `weight` | NUMERIC(10,2) | default = 0 |
+| `width` | NUMERIC(10,2) | nullable |
+| `weight` | NUMERIC(10,2) | nullable |
 | `created_at` | TIMESTAMP | server_default = now() |
 
 #### `sensor_logs`
@@ -284,8 +304,8 @@ crab 1---* crab_logs
 |--------|------|-------------|
 | `id` | INTEGER | PK, auto-increment |
 | `sensor_type` | ENUM(temperature, turbidity, ph, tds, ammonium, do) | NOT NULL |
-| `status` | ENUM(NORMAL, WARNING, DANGER) | NOT NULL |
-| `value` | NUMERIC(10,2) | default = 0 |
+| `status` | ENUM(NORMAL, WARNING, DANGER) | nullable |
+| `value` | NUMERIC(10,2) | nullable |
 | `created_at` | TIMESTAMP | server_default = now() |
 
 #### `activity_logs`
@@ -293,18 +313,17 @@ crab 1---* crab_logs
 |--------|------|-------------|
 | `id` | INTEGER | PK, auto-increment |
 | `activity_type` | ENUM(sensors, auth, crab_logs, scheduler) | NOT NULL |
-| `description` | VARCHAR(100) | NOT NULL |
-| `value` | NUMERIC(10,2) | default = 0 |
+| `description` | VARCHAR(100) | nullable |
+| `value` | NUMERIC(10,2) | nullable |
+| `user_id` | INTEGER | FK to `users.id`, nullable |
 | `created_at` | TIMESTAMP | server_default = now() |
 
-#### `calibration_settings`
+#### `batch_crab`
 | Column | Type | Constraints |
 |--------|------|-------------|
 | `id` | INTEGER | PK, auto-increment |
-| `calibration_type` | VARCHAR(50) | UNIQUE, NOT NULL |
-| `value` | NUMERIC(10,2) | NOT NULL, default = 0 |
-| `updated_at` | DATETIME | server_default = now() |
-| `updated_by` | VARCHAR(150) | NOT NULL |
+| `user_id` | INTEGER | FK to `users.id` |
+| `created_at` | TIMESTAMP | server_default = now() |
 
 #### `scheduler_settings`
 | Column | Type | Constraints |
@@ -316,8 +335,7 @@ crab 1---* crab_logs
 | `seconds` | INTEGER | default = 0 |
 | `is_enabled` | BOOLEAN | default = false |
 | `created_at` | TIMESTAMP | server_default = now() |
-| `created_by` | VARCHAR(150) | NOT NULL |
-| `last_run` | TIMESTAMP | nullable |
+| `user_id` | INTEGER | FK to `users.id` |
 
 #### `chat_sessions`
 | Column | Type | Constraints |
@@ -333,9 +351,8 @@ crab 1---* crab_logs
 |--------|------|-------------|
 | `id` | VARCHAR(36) | PK (UUID) |
 | `session_id` | VARCHAR(36) | FK to `chat_sessions.id`, NOT NULL |
-| `role` | VARCHAR(20) | NOT NULL |
+| `role` | ENUM(user, assistant) | NOT NULL |
 | `content` | TEXT | NOT NULL |
-| `client_message_id` | VARCHAR(255) | UNIQUE, nullable |
 | `created_at` | DATETIME | server_default = now() |
 
 ### Migration Chain
@@ -345,6 +362,8 @@ fb3179d6205f  (initial schema: users, crab, crab_logs, scheduler_settings, calib
        |
 33e05a5b7d66  (seed data: admin user + 25 crabs)
        |
+24e806715c23  (additional seed data)
+       |
 aefb5bbab48e  (activity_logs table + last_run column)
        |
 c1c5697e9d49  (sensor_logs table)
@@ -352,6 +371,8 @@ c1c5697e9d49  (sensor_logs table)
 42e606fb8efe  (chat_sessions + chat_messages tables)
        |
 3b6a664a5903  (schema update: batch_crab table, drop calibration_settings, add user_id FKs, column changes)
+       |
+ee46f37f7890  (make activity_logs.user_id nullable)
 ```
 
 ---
