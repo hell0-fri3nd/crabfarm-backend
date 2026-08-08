@@ -10,6 +10,11 @@ def _ownership_filter(query, user_id: int | None):
 
 class ChatManager:
     def create_session(self, db: Session, user_id: int | None = None) -> ChatSession:
+        if user_id is not None:
+            existing = self.get_active_session(db, user_id)
+            if existing:
+                return existing
+
         session = ChatSession(
             user_id=user_id,
             status="active"
@@ -18,6 +23,12 @@ class ChatManager:
         db.commit()
         db.refresh(session)
         return session
+
+    def get_active_session(self, db: Session, user_id: int) -> ChatSession | None:
+        return db.query(ChatSession).filter(
+            ChatSession.user_id == user_id,
+            ChatSession.status == "active"
+        ).first()
 
     def get_session(self, db: Session, session_id: str, user_id: int | None = None) -> ChatSession | None:
         return _ownership_filter(
