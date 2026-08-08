@@ -361,6 +361,7 @@ async def get_all_users(request: Request, db: Session = Depends(get_db)):
                         "id": u.id,
                         "name": u.name,
                         "email": u.email,
+                        "role": u.role,
                         "created_at": u.created_at.isoformat() if u.created_at else None,
                         "updated_at": u.updated_at.isoformat() if u.updated_at else None,
                     }

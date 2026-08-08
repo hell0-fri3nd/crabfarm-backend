@@ -81,17 +81,63 @@ async def create_session(request: Request, db: Session = Depends(get_db)):
             }
         )
 
-@ChatAI.get("/sessions/{session_id}")
+# @ChatAI.get("/sessions")
+# @jwt_manager.requires_access
+# async def list_sessions(
+#     request: Request,
+#     limit: int = Query(20, ge=1, le=100),
+#     offset: int = Query(0, ge=0),
+#     db: Session = Depends(get_db)
+# ):
+#     try:
+#         user_id = resolve_identity(request)
+#         sessions = chat_manager.list_sessions(db, user_id, limit=limit, offset=offset)
+#         return JSONResponse(
+#             status_code=status.HTTP_200_OK,
+#             content={
+#                 "status_code": status.HTTP_200_OK,
+#                 "detail": "Success",
+#                 "data": [
+#                     {
+#                         "id": s.id,
+#                         "user_id": s.user_id,
+#                         "status": s.status,
+#                         "created_at": s.created_at.isoformat(),
+#                         "updated_at": s.updated_at.isoformat(),
+#                     }
+#                     for s in sessions
+#                 ],
+#                 "pagination": {
+#                     "limit": limit,
+#                     "offset": offset,
+#                 }
+#             }
+#         )
+#     except HTTPException:
+#         raise
+#     except Exception as e:
+#         logger.exception("Failed to list sessions")
+#         return JSONResponse(
+#             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+#             content={
+#                 "status_code": status.HTTP_500_INTERNAL_SERVER_ERROR,
+#                 "detail": "Failed to list sessions",
+#                 "data": {}
+#             }
+#         )
+
+
+@ChatAI.get("/sessions")
 @jwt_manager.requires_access
 async def get_session(
     request: Request,
-    session_id: str,
     limit: int = Query(30, ge=1, le=100),
     offset: int = Query(0, ge=0),
     db: Session = Depends(get_db)
 ):
     try:
         user_id = resolve_identity(request)
+        session_id = chat_manager.get_active_session(db, user_id).id
         session = chat_manager.get_session(db, session_id, user_id)
         if not session:
             return JSONResponse(

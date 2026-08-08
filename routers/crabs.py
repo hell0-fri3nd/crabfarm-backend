@@ -177,11 +177,12 @@ async def read_crabs_by_group(crab_group: str, request: Request, db: Session = D
 async def insert_logs(request: Request, db: Session = Depends(get_db)):
     
     try:
-        data    = await request.json()  
-        crab_id = data.get("crab_id")
-        type    = data.get("type")
-        width   = data.get("width")
-        weight  = data.get("weight")
+        data     = await request.json()  
+        crab_id  = data.get("crab_id")
+        type     = data.get("type")
+        width    = data.get("width")
+        weight   = data.get("weight")
+        batch_id = data.get("batch_id")
         
         token = request.cookies.get("access_token")
         token_bytes = token.encode('utf-8')
@@ -189,13 +190,14 @@ async def insert_logs(request: Request, db: Session = Depends(get_db)):
         decoded = jwt_manager.decode_token(token_bytes)
         email = decoded['email']
         user_id = decoded["id"]
-        log_activity(db, "crab_logs", f"User {email} inserted crab log for crab ID {crab_id}", user_id)
+        log_activity(db, "crab_logs", f"User {email} inserted crab log for crab ID {crab_id}" + (f" (batch {batch_id})" if batch_id else ""), user_id)
 
         new_log = CrabLogs(
             crab_id=crab_id,
             type=type,
             width=width,
             weight=weight,
+            batch_id=batch_id,
             user_id=user_id
         )
         db.add(new_log)
